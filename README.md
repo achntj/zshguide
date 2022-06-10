@@ -1,3 +1,7 @@
+# Built on top of my [nextjs-contentlayer-starter](https://github.com/achintyajha/contentlayer-next-mdx-starter)
+
+___
+
 # Next.js & Contentlayer starter
 
 This is a minimal Next.js & Contentlayer starter that comes configured with MDX support, code highlighting, and tailwind css.
