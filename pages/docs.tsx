@@ -35,9 +35,7 @@ export default function Docs({ docs }) {
 }
 
 export const getStaticProps = async () => {
-  const docs = allDocs.sort(
-    (a, b) => Number(new Date(b.date)) - Number(new Date(a.date))
-  );
+  const docs = allDocs;
   return {
     props: {
       docs,
