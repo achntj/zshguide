@@ -5,3 +5,5 @@
 - Remove escape sequences (`\`) from code blocks.
 - Fix Links to point to this documentation.
 - Fix all errors caused due to formatting + html to markdown faults.
+
+God bless vim for macros, this would have been too hard
