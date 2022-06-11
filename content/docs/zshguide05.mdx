@@ -137,7 +137,7 @@ Double quotes allow some, but not all, forms of substitution inside. More specif
 | $ZSH\_VERSION   | 4.0.1           |  4.0.1          |
 | $(echo hi mum)  |hi mum           | hi mum          |
 | $((6\*\*2 + 6)) |  42             |   42            |
-| {a,b}cd         |acd bcd          | {a,b}cd         |
+| `{a,b}cd`       |acd bcd          | `{a,b}`cd       |
 | ~/foo           |/home/pws/foo    | ~/foo           |
 | .zl\*           | .zlogin .zlogout|  .zl\*          |
 
@@ -709,13 +709,13 @@ Here, finally, is a comparison of some of the uses of associative arrays in perl
 
 |    perl                  |         zsh                                  |
 | -------------------------|----------------------------------------------|
-| %hash = qw(key value);   |      typeset -A hash; hash=(key value)       |
-| $hash{key}               |      ${hash[key]}                            |
-| keys %hash               |      `${(k)hash}`                            |
+| `%hash = w(key value);`  |      `typeset -A hash; hash=(key value)`     |
+| `$hash{key}`             |      `${hash[key]}`                          |
+| `keys %hash`             |      `${(k)hash}`                            |
 | values %hash             |      `${(v)hash}`                            |
 | %hash2 = %hash;          |      typeset -A hash2; hash2=(`${(@kv)hash}`)|
 | unset %hash;             |      unset hash                              |
-| if (exists $hash{key}) \{ |      if (( ${+hash[key]} )); then          |
+| if (`exists $hash{key}){`|      if (( `${+hash[key]}` ));then          |
 |   ...                    |        ...                                   |
 | }                        |      fi                                      |
 
@@ -1327,21 +1327,21 @@ The first line is another of those bogus parameter substitutions where we gave i
   mlens=(31 28 31 30 31 30 31 31 30 31 30 31)
   date=(${(s.-.)foo})    #  splits to array (01 08 23)
   typeset -Z 2 incr
-  if (( ${date\[3\]} < ${mlens\[${date\[2\]}\]} )); then
+  if (( ${date[3]} < ${mlens\[${date[2]}]} )); then
     # just increment day
-    (( incr = ${date\[3\]} + 1 ))
-    date\[3\]=$incr
+    (( incr = ${date[3\]} + 1 ))
+    date[3]=$incr
   else
     # go to first of next month
-    date\[3\]=01
-    if (( ${date\[2\]} < 12 )); then
-      (( incr = ${date\[2\]} + 1 ))
+    date[3]=01
+    if (( ${date[2\]} < 12 )); then
+      (( incr = ${date[2\]} + 1 ))
       date\[2\]=$incr
     else
       # happy new year
-      date\[2\]=01
-      (( incr = ${date\[3\]} + 1 ))
-      date\[3\]=$incr
+      date[2\]=01
+      (( incr = ${date[3\]} + 1 ))
+      date[3\]=$incr
     fi
   fi
   print ${date\[1\]}-${date\[2\]}-${date\[3\]}
@@ -1363,7 +1363,7 @@ with:
 
 This uses the `(l)` parameter flag to fill up to two characters with a zero (the default is a space, so we need to specify the \``0`' this time), using the fact that parameter operations can have a nested `$`\-substution. This second form is less standard, however.
 
-Now, finally, the point. In that \`$(( ${date[2]} + 1 ))', the \``${date[2]}`' is simply the _scalar_ \``08`' --- the result of splitting an arbitrary string into an array. Suppose we used leading zeroes to signify octal numbers. We would get something like:
+Now, finally, the point. In that `$(( ${date[2]} + 1 ))`, the `${date[2]}` is simply the _scalar_ \``08`' --- the result of splitting an arbitrary string into an array. Suppose we used leading zeroes to signify octal numbers. We would get something like:
 
 ```shell
   % print $(( ${date\[2\]} + 1 ))
