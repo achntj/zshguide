@@ -2,17 +2,11 @@
 title: 'Chapter 5: Substitutions'
 ---
 
-* * *
-
-*   [Table of Contents](zshguide.html)
-*   [Previous Chapter](zshguide04.html)
-*   [Next Chapter](zshguide06.html)
-
-* * *
-
 This chapter will appeal above all to people who are excited by the fact that
 
+```shell
   print ${array\[(r)${(l.${#${([\[email protected\]](/cdn-cgi/l/email-protection))array//?/X}\[1\]}..?.)}\]}
+```
 
 prints out the longest element of the array `$array`. For the overwhelming majority that forms the rest of the population, however, there should be plenty that is useful before we reach that stage. Anyway, it should be immediately apparent why there is no obfuscated zsh code competition.
 
@@ -27,29 +21,36 @@ I've been using quotes of some sort throughout this guide, but I've never gone i
 
 The main point to make about backslashes is that they are really trivial. You can quote any character whatsoever from the shell with a backslash, even if it didn't mean anything unquoted; so if the worst comes to the worst, you can take any old string at all, whatever it has in it --- random collections of quotes, backslashes, unprintable characters --- quote every single character with a backslash, and the shell will treat it as a plain string:
 
+```shell
   print \\T\\h\\i\\s\\ \\i\\s\\ \\\*\\p\\o\\i\\n\\t\\l\\e\\s\\s\\\*\\ \\ 
       \\-\\ \\b\\u\\t\\ \\v\\a\\l\\i\\d\\!
+```
 
 Remember, too that, this means you need an extra layer of quotation to pass a \``\n`', or whatever, down to `print`.
 
 However, zsh has an easier way of making sure everything is quoted with a backslash when that's needed. It's a special form of parameter substitution, just one of many tricks you can do by supplying flags in parentheses:
 
+```shell
   % read string
   This is a \*string\* with various \`special' characters
   % print -r -- ${(q)string}
   This\\ is\\ a\\ \\\*string\\\*\\ with\\ various\\ \\\`special\\'\\ characters
+```
 
 The `read` builtin didn't do anything to what you typed, so `$string` contains just those characters. The `-r` flag to print told it to print out what came after it in raw fashion, and here's the special part: `${(q)string}` tells the shell to output the parameter with backslashes where needed to prevent special characters being interpreted. All parameter flags are specific to zsh; no other shell has them.
 
 The flag is not very useful there, because zsh usually (remember the `GLOB_SUBST` option?) doesn't do anything special to characters from substitutions anyway. Where it _is_ extremely useful is if you are going to re-evaluate the text in the substitution but still want it treated as a plain string. So after the above,
 
+```shell
   % eval print -r -- ${(q)string}
   This is a \*string\* with various \`special' characters
+```
 
 and you get back what you started with, because at the `eval` of the command line the backslashes put in by the `(q)` flag meant that the value was treated as a plain string.
 
 You can strip off quotes in parameters, too; the flag `(Q)` does this. It doesn't care whether backslashes or single or double quotes are used, it treats them all the way the shell's parser would. You only need this when the parameter has somehow acquired quotes in its value. One way this can happen is if you try reading a file containing shell commands, and for this there's another trick: the `(z)` flag splits a line into an array in the same way as if the line had been read in and was, say, being assigned to an array. Here's an example:
 
+```shell
   % cat file
   print 'a quoted string' and\\ another\\ argument
   % read -r line <file
@@ -63,6 +64,7 @@ You can strip off quotes in parameters, too; the flag `(Q)` does this. It doesn'
   unquoted:  a quoted string
   quoted:    and\\ another\\ argument
   unquoted:  and another argument
+```
 
 You will notice that the `(z)` doesn't remove any of the quotes from the words read in, but the `(Q)` flag does. Note the `-r` flags to both `read` and `print`: the first prevents the backslashes being absorbed by `read`, and the second prevents them being absorbed by `print`. I'm afraid backslashes can be a bit of a pain in the neck.
 
@@ -72,13 +74,17 @@ The only thing you can't quote with single quotes is another single quote. Howev
 
 You might remember something like this from BASIC, although in that case with double quotes --- in zsh, it works only with single quotes, for some reason. So,
 
+```shell
   print -r 'A ''quoted'' string'
+```
 
 would usually give you the output \``A quoted string`', but with the option set it prints \``A 'quoted' string`'. The `-r` option to `print` doesn't do anything here, it's just to show I'm not hiding anything. This is usually a useful and harmless option to have set, since there's no other good reason for having two quotes together within quotes.
 
 The standard way of quoting single quotes is to end the quote, insert a backslashed single quote, and restart quotes again:
 
+```shell
   print -r 'A '\\''quoted'\\'' string'
+```
 
 which is unaffected by the option setting, since the quotes immediately after the backslashes are always treated as an ordinary printable character. What you _can't_ ever do is use backslashes as a way of quoting characters inside single quotes; they are just treated as ordinary characters there.
 
@@ -88,24 +94,30 @@ You can make parameter flags produce strings quoted with single quotes instead o
 
 There's a relative of single quotes which uses the syntax `$'` to introduce a quoted string and `'` to end it; I refer to them as \`POSIX quotes' because they appear in the POSIX standard and I don't know what else to call them; \`string quotes' is one possibility, but sounds a bit vague (what else would you quote?) The difference from single quotes is that they understand the same backslash sequences as the print builtin. Hence you can have the convenience of using \``\n`' for newline, \``\e`' for escape, \``\xFF`' for an arbitrary character in hexadecimal, and so on, for any command:
 
+```shell
   % cat <<<$'Line\\tone\\nLine\\ttwo'
   Line    one
   Line    two
+```
 
 Remember the \`here string' notation \``<<<`', which supplies standard input for the command. Hence the output shows exactly how the quoted string is being interpreted. It is the same as
 
+```shell
   % print 'Line\\tone\\n\\Line\\ttwo'
   Line    one
   Line    two
+```
 
 but there the interpretation is done inside `print`, which isn't always convenient. POSIX quotes are currently rather underused.
 
 This is as good a point as any to mention that the shell is completely \`eight-bit clean', which means you can have any of the 256 possible characters anywhere in your string. For example, `$'foo\000bar'` has an embedded ASCII NUL in it (that's not a misprint --- officially, ASCII non-printing characters have two- or three-letter abbreviations). Usually this terminates a string, but the shell works around this when you are using it internally; when you try and pass it as an argument to an external programme, however, all bets are off. Almost certainly the first NUL in that case will cause the programme to think the string is finished, because no information about the length of arguments is passed down and there's nothing the shell can do about it. Hence, for example:
 
+```shell
   % echo $'foo\\000bar'
   foobar
   % /bin/echo $'foo\\000bar'
   foo
+```
 
 The shell's `echo` knows about the shell's 8-bit conventions, and prints out the NUL, which the terminal doesn't show, then the remainder of the string. The external version of `echo` didn't know any better than to stop when it reached the NUL.
 
@@ -119,15 +131,15 @@ You can force parameters to be quoted with POSIX quotes by the somewhat absurd e
 
 Double quotes allow some, but not all, forms of substitution inside. More specifically, they allow parameter expansion, command substitution and arithmetic substitution, but not any of the others: process substitution doesn't happen, braces and initial tildes and equals signs are not expanded and patterns are not special. Here's a table; each expression on the left is some command line argument, and the results show what is substituted if it appears outside quotes, or in double quotes.
 
-  Expression      Outside quotes  In double quotes
-  ------------------------------------------------
-  =(echo hi mum)  /tmp/zshTiqpL     =(echo hi mum)
-  $ZSH\_VERSION    4.0.1             4.0.1
-  $(echo hi mum)  hi mum            hi mum
-  $((6\*\*2 + 6))   42                42
-  {a,b}cd         acd bcd           {a,b}cd
-  ~/foo           /home/pws/foo     ~/foo
-  .zl\*            .zlogin .zlogout  .zl\*
+| Expression      |Outside quotes   |In double quotes |
+| ----------------|-----------------|-----------------|
+|  =(echo hi mum) | /tmp/zshTiqpL   |  =(echo hi mum) |
+| $ZSH\_VERSION   | 4.0.1           |  4.0.1          |
+| $(echo hi mum)  |hi mum           | hi mum          |
+| $((6\*\*2 + 6)) |  42             |   42            |
+| {a,b}cd         |acd bcd          | {a,b}cd         |
+| ~/foo           |/home/pws/foo    | ~/foo           |
+| .zl\*           | .zlogin .zlogout|  .zl\*          |
 
 That \``/tmp/zshTiqpL`' could be any temporary filename, and indeed several of the other substitutions will be different in your case.
 
@@ -137,6 +149,7 @@ You might already have guessed that \``${(qqq)string}`' forces `$string` to use 
 
 Where the substitutions are allowed, the (almost) invariable side effect of double quotes is that word-splitting is suppressed. You can see this using \``print -l`', which prints one argument per line:
 
+```shell
   % array=(one two)
   % print -l $(echo foo bar) $array
   foo
@@ -145,53 +158,68 @@ Where the substitutions are allowed, the (almost) invariable side effect of doub
   two
   % print -l "$(echo foo bar) $array"
   foo bar one two
+```
 
 The reason this is \`almost' invariable is that parameter substitution allows you to specify that normal word-splitting will occur. There are two ways of doing this; both use the symbol \``@`'. You probably remember this from the parameter \``[[email protected]](/cdn-cgi/l/email-protection)`' which has just that effect when it appears in double quotes: the arguments to the script or function are split into words like a normal array, except that empty arguments are not removed. I covered this at some length in [chapter 3](zshguide03.html#syntax).
 
 This is extended for other parameters in the following way:
 
+```shell
   % array=(one two three)
   % print -l "${array\[@\]}"
   one
   two
   three
+```
 
 and more generally for all forms of substitution using another flag, `(@)`:
 
+```shell
   % print -l "${(@)array}"
   one
   two
   three
+```
 
 **Digression on subscripts**  
 
 The version with flags is perhaps less clear than the other, but it can appear in lots of different places. For example, here is how you pick a slice of an array in zsh:
 
+```shell
   % print -l ${array\[2,-1\]}
   two
   three
+```
 
 where negative numbers count from the end of the array. The numbers in square brackets are referred to as subscripts. This can get the `(@)` treatment, too:
 
+```shell
   % print -l "${(@)array\[2,-1\]}"
   two
   three
+```
 
 Although it's probably not obvious, you can use the other notation in this case:
 
+```shell
   % print -l "${array\[@\]\[2,-1\]}"
   two
   three
+```
 
 The shell will actually handle arbitrary numbers of subscripts in parameter substitutions, not just one; each applies to the result of the previous one:
 
+```shell
   % print -l "${array\[@\]\[2,-1\]\[1\]}"
   two
+```
 
 What you have to watch out for is that that last subscript selected a single word. You can continue to apply subscripts, but they will apply only on the _characters_ in that word, not on array elements:
 
+```shell
   % print -l "${array\[@\]\[2,1\]\[1\]\[2,-1\]}"
   wo
+```
 
 We've now strayed severely off topic: the subscripts will of course work quite independently from whether the word is being split or appears in double quotes. Despite the joining of words that occurs in double quotes, subscripts of arrays still select array elements. This is a consequence of the order in which the rules of parameter expansion apply. There is a long, involved section on this in the `zshexpn` manual entry (look for the heading \`Rules' there or in the \`Parameter Expansion' node of the corresponding Info or HTML file).
 
@@ -199,6 +227,7 @@ We've now strayed severely off topic: the subscripts will of course work quite i
 
 Zsh has the useful feature that you can force the shell to apply the rules of parameter expansion to the result of a command substitution. To see where that might be useful, consider the case of the special \`command substitution' (although it's handled entirely in the shell, not by running an external command) which puts the contents of a file on the command line:
 
+```shell
   % args() { print $#; }    # report number of arguments
   % cat file
   Words on line one
@@ -207,13 +236,16 @@ Zsh has the useful feature that you can force the shell to apply the rules of pa
   8
   % args "$(<file)"
   1
+```
 
 The unquoted substitution split the file into individual words; the quoted substitution didn't split it at all. These are the standard shell rules.
 
 It's very common, however, that you want one line per argument, not splitting on spaces within the line. This is where parameter expansion can come in. There is a flag `(f)` which says \`split the result of the expansion, one word per line'. Here's how to use it in this case:
 
+```shell
   % args "${(f)$(<file)}"
   2
+```
 
 Where you would usually put the name of a parameter, you put the command substitution instead, and the shell operates on the result of that (note that it does not treat the result as the name of a parameter, but as a value --- this is discussed in more detail below). The double quotes were necessary because otherwise the file would already have been split into individual words by the time the parameter substitution came to look at the result. You can easily verify that the two arguments are the individual lines of the file. I don't remember what the \``f`' stands for, but we were already using up flag codes quite fast when it came along; Bart Schaefer believes it stands for \`fold', which might at least help you remember it.
 
@@ -223,8 +255,10 @@ The main thing to say about backquotes is that you should use the other form of 
 
 First, the other form can be nested:
 
+```shell
   % print $(print $(print a word))
   a word
+```
 
 Obviously that's a silly example, but the main point is that the only time parentheses should occur unquoted in the shell is in pairs (the patterns in case statements are an exception, but pairs of parentheses around patterns are valid, too, and I have used that form in this guide). Thus you can be confident that any piece of well-formatted shell code can appear inside the command substitution.
 
@@ -232,23 +266,29 @@ This is clearly not true with `` `...` ``, even though the basic effect is the s
 
 The second reason, which is closely related, is that it can be quite difficult to decide how many levels of quotes are required inside a backquoted expression. Consider:
 
+```shell
   % print "\`echo \\"hello\\"\`"
   hello
   % print "$(echo \\"hello\\")"
   "hello"
+```
 
 It's hard to explain quite what the difference here is without waving my hands, which prevents me from typing, but the essential point is really the same one about nesting: you can't do it with backquotes, because the start and end symbols are the same, but you can do it with parentheses. So in the second case there is no doubt that the embedded command line, \``echo \"hello\"`', is to be treated exactly as if that had appeared outside the command substitution; whereas in the first place, the quotes within quotes had to be, um, quoted.
 
 As a consequence, in
 
+```shell
   % print "$(echo "hello")"
   hello
+```
 
 you need to be careful: at first glance, the pairs of double quotes surround \``$`(`echo` ' and \`)', but they don't, they are nested by virtue of the substitution. You see the same thing with parameter substitution:
 
+```shell
   % unset foo
   % print "${foo:-"a string"}"
   a string
+```
 
 A third, less good, reason for using the form with parentheses is that your more sophisticated friends will laugh at you otherwise. Peer pressure is so important in this complex world.
 
@@ -259,21 +299,26 @@ That's all I have to say about command substitution, since I already said a lot 
 
 Modifiers were introduced in [chapter 2](zshguide02.html#init) when I talked about \`bang history', since that's where they came from. In zsh, however, they can be used in a couple of other places. They have the same form in each case: a colon, followed by a letter which is the code for what the modifier does, possibly (in the case of substitutions) followed by some other string. So, to jog your memory, unless you have `NO_BANG_HIST` set:
 
+```shell
   % print ~/file
   /home/pws/file
   % print !-1:t
   file
+```
 
 where \``:t`' takes the tail (non-directory part) of the filename.
 
 The second use is in parameters. This follows on very naturally. Note that neither this nor any of the later uses of modifiers rely on the `NO_BANG_HIST` option; that's purely for history.
 
+```shell
   % param=~/file
   % print ${param:t}
   file
+```
 
 Normally you can miss out the braces in the parameter substitution, but I tend to use them with modifiers for the sake of clarity. The fact that the same parts of the shell are used for modifiers wherever they come from has certain consequences:
 
+```shell
   % print foo
   foo
   % ^foo^bar
@@ -281,50 +326,63 @@ Normally you can miss out the braces in the parameter substitution, but I tend t
   % param='this sentence contains a foo.'
   % print ${param:&}
   this sentence contains a bar.
+```
 
 The ampersand repeats the last substitution, which is the same for parameter modifiers as for history modifiers. I find parameter modifiers even more useful than history ones; extracting the head or tail of a path is a very common operation on parameters.
 
 Modifiers are also smart enough to handle arrays in a useful fashion. Note this is not true of sets of arguments in history expansions; \``:t`' will only extract one tail in that case, which may not be quite what you're expecting:
 
+```shell
   % print a sentence with a /real/live/bogus/path in it.
   % print !!:t
   path in it.
+```
 
 However, arrays _are_ handled the way you might hope:
 
+```shell
   % array=(~/.zshenv ~/.zshrc ~/.zlogout)
   % print ${array:t}
   .zshenv .zshrc .zlogout
+```
 
 The same logic is applied with substitutions. This means that the first match in every element of the array is replaced:
 
+```shell
   % array=('a bar of chocolate' 'a bar of barflies' 
   array> 'a barrier of barns')
   % print ${array:s/bar/car/}
   a car of chocolate a car of barflies a carrier of barns
+```
 
 unless, of course, you do a global replacement:
 
+```shell
   % print ${array:gs/bar/car/}
   a car of chocolate a car of carflies a carrier of carns
+```
 
 Note, however, that parameter substitution has its own _much_ more powerful equivalent, which does pattern matching, partial replacement of modified parts of the original string, and so on. We'll come to this all in good time.
 
 The final use of modifiers is in filename generation, i.e. globbing. Since this usually works by having special characters on the command line, and modifiers just consist of ordinary characters, the syntax is a little different:
 
+```shell
   % print \*.c
   parser.c lexer.c input.c output.c
   % print \*.c(:r)
   parser lexer input output
+```
 
 so you need parentheses around them. This is a special case of \`glob qualifiers' which you'll meet below; you can mix them, but the modifiers must appear at the end. For example,
 
+```shell
   % print -l ~/stuff/\*
   /home/pws/stuff/onefile.c
   /home/pws/stuff/twofile.c
   /home/pws/stuff/subdir
   % print ~/stuff/\*(.:r:t)
   onefile twofile
+```
 
 The globbing qualifier \``.`' specifies that files must be regular, i.e. not directories nor some form of special file. The \``:r`' removes the suffix from the result, and the \``:t`' takes away the directory part. Consequently, filename modifiers will be turned off if you set the option `NO_BARE_GLOB_QUAL`.
 
@@ -337,6 +395,7 @@ Second, although it _does_ work if the word on the command line isn't a pattern 
 
 I don't have much new to say on process substitution, but I do have an example of where I find it useful. If you use the pager \`less' you may know it has the facility to preprocess the files you look at, for example uncompressing files temporarily via the environment variable `$LESSOPEN` (and maybe `$LESSCLOSE`). Zsh can very easily and, to my thoroughly unbiased way of looking, more conveniently do the same thing. Here's a subset of my zsh function front-end to less --- or indeed any pager, which is given here by the standard environment variable `$PAGER` with the default `less`. You can hard-wire any file-displaying command at that point if you prefer.
 
+```shell
   integer i=1
   local args arg
   args=($\*)
@@ -355,16 +414,21 @@ I don't have much new to say on process substitution, but I do have an example o
   done
 
   eval command ${PAGER:-less} $args
+```
 
 The main pieces of interest is how elements of the array `$args` were replaced. The reason each argument was given an extra layer of quotes via `(q)` is the `eval` at the end; `$args` is turned into an array of literal characters first, which hence need quoting to protect special characters. Without that, filenames with spaces or asterisks or whatever wouldn't be shown properly.
 
 The reason the `eval` is there is so that the process substitutions are evaluated on the command line when the pager is run, and not before. They are assigned back to elements of `$args` in quotes, so don't get evaluated at that point. The effect will be to turn:
 
+```shell
   less file.gz file.txt
+```
 
 into
 
+```shell
   less =(zcat file.gz) file.txt
+```
 
 The \``command`' at the end of the function is there just in case the function has the same name as the pager (i.e. \`less' in this example); it forces the external command to be called rather than the function. The process substitution is ideal in this context; it provides `less` with the name of a file to which the decompressed contents of `file.gz` have been sent, and it deletes the file after the command exits. Furthermore, the substitution happens in such a way that you can still specify multiple files on the command line as you usually can with less. The only problem is that the filename that appears in the \``less`' prompt is meaningless.
 
@@ -372,7 +436,9 @@ In case you haven't come across it, `bzip2` is a programme very similar to `gzip
 
 There's an infelicity in output process substitutions, just as there is with multios.
 
+```shell
   echo hello > >(sed s/hello/goodbye)
+```
 
 The shell spawns the `sed` process to handle the output from the command line --- and then forgets about it. It does not wait for it (at least, not until after it exits, when it will use the `wait` system call to tidy up). So it is dangerous to rely on the result of the process being available in the next command. If you try it interactively, in fact, you may well find that the next prompt is printed before the output from `sed` shows up on the terminal. This can probably be considered a bug, but it is quite difficult to fix.
 
@@ -387,6 +453,7 @@ The array syntax in zsh is quite powerful (surprised?); just don't expect it to 
 
 I've covered, somewhat sporadically, how to set arrays, and how to extract bits of them --- the following illustrates this:
 
+```shell
   % array=(one two three four)
   % print ${array}
   one two three four
@@ -394,11 +461,13 @@ I've covered, somewhat sporadically, how to set arrays, and how to extract bits 
   three
   % print ${array\[2,-1\]}
   two three four
+```
 
 Remember you need \``typeset`' or equivalent if you want the array to be local to a function. The neat way is \``typeset -a`', which creates an empty array, but as long as you assign to the array before trying to use it any old `typeset` will do.
 
 You can use the array index and array slice notations for assigning to arrays, in other words on the left-hand side of an \``=`':
 
+```shell
   % array=(what kind of fool am i)
   % array\[2\]=species
   % print $array
@@ -409,11 +478,13 @@ You can use the array index and array slice notations for assigning to arrays, i
   % array\[-3,-1\]=(work is a man)
   % print $array
   what a piece of work is a man
+```
 
 So you can replace a single element of an array by a single element, or by an array slice; likewise you can replace a slice in one go by a slice of a different length --- only the bits you explicitly tell it to replace are changed, the rest is left intact and maybe shifted along to make way. This is similar to perl's \`splice' command, only for once maybe a bit more memorable. Note that you shouldn't supply any braces on the left hand side. The appearance of the expression in an assignment is enough to trigger the special behaviour of subscripts, even if `KSH_ARRAYS` is in effect --- though you need to subtract one from your subscripts in that case.
 
 You can remove bits in the middle, too, but note you should use an empty array:
 
+```shell
   % array=(one two three four)
   % print $#array
   4
@@ -423,19 +494,23 @@ You can remove bits in the middle, too, but note you should use an empty array:
   % array\[2\]=()
   % print $#array
   3
+```
 
 The first assignment set element 2 to the empty string, it didn't remove it. The second replaced the array element with an array of length zero, which did remove it.
 
 Just as parameter substitutions have flags for special purposes, so do subscripts. You can force them to search through arrays, matching on the values. You can return the value matched ((r)everse subscripting):
 
+```shell
   % array=(se vuol ballare signor contino)
   % print ${array\[(r)s\*\]}
   se
   % print ${array\[(R)s\*\]}
   signor
+```
 
 The `(r)` flag takes a pattern and substitutes the first element of the array matched, while the `(R)` flag does the same but starting from the end of the array. If nothing matched, you get the empty string; as usual with parameters, this will be omitted if it's the only thing in an unquoted argument. Using our `args` function to count the arguments passed to a command again:
 
+```shell
   % array=(some words)
   % args() { print $#; }
   % args ${array\[(r)s\*\]}
@@ -444,19 +519,23 @@ The `(r)` flag takes a pattern and substitutes the first element of the array ma
   0
   % args "${array\[(r)X\*\]}"
   1
+```
 
 where in the last case the empty string was quoted, and passed down as a single, empty argument.
 
 You can also return the index matched; `(i)` to start matching from the beginning, and `(I)` to start from the end.
 
+```shell
   % array=(se vuol venire nella mia scuola)
   % print ${array\[(i)v\*\]}
   2
   % print ${array\[(I)v\*\]}
   3  
+```
 
 matching \`vuol' the first time and \`venire' the second. What happens if they don't match may be a little unexpected, but is reasonably logical: you get the next index along. In other words, failing to match at the end gives you the length of the array plus one, and failing to match at the beginning gives you zero, so:
 
+```shell
   array=(three egregious words)
   for pat in '\*e\*e\*' '\*a\*a\*'; do
     if \[\[ ${array\[(i)$pat\]} -le ${#array} \]\]; then
@@ -465,11 +544,14 @@ matching \`vuol' the first time and \`venire' the second. What happens if they d
       print "Pattern $pat failed to match in array"
     fi
   done
+```
 
 prints:
 
+```shell
   Pattern \*e\*e\* matched in array: three.
   Pattern \*a\*a\* failed to match in array
+```
 
 If you adapt that chunk of code, you'll see you get the indices 1 and 4 returned. Note that the characters in `$pat` were treated as a pattern even though putting `$pat` on the command line would normally just produce the characters themselves. Subscripts are special in that way; trying to keep the syntax under control at this point is a little hairy. There is a more detailed description of this in the manual in the section \`Subscript Parsing' of the `zshparam` manual page or the \`Array Parameters' info node; to quote the characters in `pat`, you would actually have to supply the command line strings `'\*e\*e\*'` and `'\*a\*a\*'`. Just go round mumbling \`extra layer of pattern expansion' and everyone will think you know what you're talking about (it works for me, fitfully).
 
@@ -481,45 +563,58 @@ Look back at [chapter 3](zshguide03.html#syntax) if you've forgotten about assoc
 
 Retrieving information from associative arrays can get you into some of the problems already hinted at in the use of subscript flags with arrays. However, since normal subscripting doesn't make patterns active, there is a way round here: make the subscript into another parameter:
 
+```shell
   % typeset -A assoc
   % assoc=(key value Shlüssel Wert clavis valor)
   % subscript='key'
   % print ${assoc\[$subscript\]}
   value  
+```
 
 I used fairly boring keys here, but they can be any string of characters:
 
+```shell
   % assoc=('\]' right\\ square\\ bracket '\*' asterisk '@' at\\ sign)
   % subscript='\]'
   % print ${assoc\[$subscript\]}
   right square bracket
+```
 
 and _that_ is harder to get the other way. Nonetheless, if you define your own keys you will often use simple words, and in that case they can happily appear directly in the square brackets.
 
 I introduced two parameter flags, `(k)` and `(v)` in [chapter 3](zshguide03.html#syntax):
 
+```shell
   % print ${(k)assoc}
   \* \] @
+```
 
 prints out keys, while
 
+```shell
   % print ${(kv)assoc}
   \* asterisk \] right square bracket @ at sign
+```
 
 and the remaining two possibilities do the same thing:
 
+```shell
   % print ${(v)assoc}
   asterisk right square bracket at sign
   % print ${assoc}
   asterisk right square bracket at sign
+```
 
 You now know these are part of a much larger family of tricks to apply to substitutions. There's nothing to stop you combining flags:
 
+```shell
   % print -r ${(qkv)assoc}
   \\\* asterisk \\\] right\\ square\\ bracket @ at\\ sign
+```
 
 which helps see the wordbreaks. Don't forget the \``print -l`' trick for separating out different words, and hence elements of arrays and associative arrays:
 
+```shell
   % print -l ${(kv)assoc}
   \*
   asterisk
@@ -527,9 +622,11 @@ which helps see the wordbreaks. Don't forget the \``print -l`' trick for separat
   right square bracket
   @
   at sign
+```
 
 which is quite a lot clearer. As always, this will fail if you engage in un-zsh activities with `SH_WORD_SPLIT`, but judicious use of `@`, whether as a flag or a subscript, and double quotes, will always work:
 
+```shell
   % print -l "${(@kv)assoc}"
   \*
   asterisk
@@ -537,6 +634,7 @@ which is quite a lot clearer. As always, this will fail if you engage in un-zsh 
   right square bracket
   @
   at sign
+```
 
 regardless of the option setting.
 
@@ -544,44 +642,55 @@ Apart from the subscripts, the second major difference between associative and o
 
 What zsh does have, however, is extra subscript flags for you to match and retrieve one or more elements. If instead of an ordinary subscript you use a subscript preceded by the flag `(i)`, the shell will search for a matching key (not value) with the pattern given and return that. This is deliberately the same as searching an ordinary array to get its key (which in that case is just a number, the index), but note this time it doesn't match on the value, it really does match, as well as return, the key:
 
+```shell
   % typeset -A assoc
   % assoc=(fred third\\ man finnbar slip roger gully trevor long\\ off)
   % print ${assoc\[(i)f\*\]}
   fred
+```
 
 You can still use the parameter flags `(k)` and `(v)` to tell the shell which part of the key and/or value to return:
 
+```shell
   % print ${(kv)assoc\[(i)f\*\]}
   fred third man
+```
 
 Note the division of labour. The subscript flag tells the shell what to match against, while the parameter flags tell it which bit of the matched element(s) you actually want to see.
 
 Because of the essentially random ordering of associative arrays, you couldn't tell here whether fred or finnbar would be chosen. However, you can use the capital form `(I)` to tell the shell to retrieve all matches. This time, let's see the values of the elements for which the keys were matched:
 
+```shell
   % print -l ${(v)assoc\[(I)f\*\]}
   third man
   slip
+```
 
 and here we also got the position occupied by `finnbar`. The same rules about patterns apply as with `(r)` in ordinary arrays --- a subscript is treated as a pattern even if it came from a parameter substitution itself.
 
 You probably aren't surprised to hear that the subscript flags `(r)` and `(R)` try to match the values of the associative array rather than its keys. These, too, print out the actual part matched, here the value, unless you use the parameter flags.
 
+```shell
   % print ${assoc\[(r)\*i\*\]}
   third man
   % print ${(k)assoc\[(R)\*i\*\]}
   fred finnbar
+```
 
 There's one more pair of subscript flags of particular relevance to associative arrays, `(k)` and `(K)`. These work a bit like a case statement: the subscripts are treated as strings, and the keys of the associative arrays as patterns, instead of the other way around. With `(k)`, the value of the first key which matches the subscript is substituted; with `(K)`, the values of all matching keys are substituted
 
+```shell
   % typeset -A assoc
   % assoc=('\[0-9\]' digit '\[a-zA-Z\]' letter '\[^0-9a-zA-Z\]' neither)
   % print ${assoc\[(k)0\]}
   digit
   % print ${assoc\[(k)\_\]}
   neither
+```
 
 In case you're still confused, the \``0`' in the first subscript was taken as a string and all the keys in `$assoc` were treated as patterns in turn, a little like
 
+```shell
   case 0 in
     (\[0-9\]) print digit
             ;;
@@ -590,6 +699,7 @@ In case you're still confused, the \``0`' in the first subscript was taken as a 
     (\[^0-9a-zA-Z\]) print neither
                    ;;
   esac
+```
 
 One important way in which this is _not_ like the selection in a case statement is that you can't rely on the order of the comparison, so you can't rely on more general patterns being matched after more specific ones. You just have to use keys which are sufficiently explicit to match just the strings you want to match and no others. That's why we picked the pattern \``[^0-9a-zA-Z]`' instead of just \``*`' as we would probably have used in the case statement.
 
@@ -597,17 +707,17 @@ I said storing information about configuration was a common use of associative a
 
 Here, finally, is a comparison of some of the uses of associative arrays in perl and zsh.
 
-      perl                          zsh
-  -----------------------------------------------------------------
-  %hash = qw(key value);         typeset -A hash; hash=(key value)
-  $hash{key}                     ${hash\[key\]}
-  keys %hash                     ${(k)hash}
-  values %hash                   ${(v)hash}
-  %hash2 = %hash;                typeset -A hash2; hash2=("${(@kv)hash}")
-  unset %hash;                   unset hash
-  if (exists $hash{key}) {       if (( ${+hash\[key\]} )); then
-    ...                            ...
-  }                              fi
+|    perl                  |         zsh                                  |
+| -------------------------|----------------------------------------------|
+| %hash = qw(key value);   |      typeset -A hash; hash=(key value)       |
+| $hash{key}               |      ${hash[key]}                            |
+| keys %hash               |      `${(k)hash}`                            |
+| values %hash             |      `${(v)hash}`                            |
+| %hash2 = %hash;          |      typeset -A hash2; hash2=(`${(@kv)hash}`)|
+| unset %hash;             |      unset hash                              |
+| if (exists $hash{key}) \{ |      if (( ${+hash[key]} )); then          |
+|   ...                    |        ...                                   |
+| }                        |      fi                                      |
 
 One final reminder: if you are creating associative arrays inside a function which need to last beyond the end of the function, you should create them with \``typeset -gA`' which puts them into the surrounding scope. The \``-g`' flag is of course useful with all types of parameter, but the associative array is the only type that doesn't automatically spring into existence when you assign to it in the right context; hence the flag is particularly worthy of note here.
 
@@ -623,15 +733,18 @@ A few simple forms don't use patterns. First, the substitution `${#`_param_`}` o
 
 `$#` works differently on scalar values and array values; in the former case, it gives the length in characters, and in the latter case the length in elements. Note that I said \`values', not \`parameters' --- you have to work out whether the substitution is giving you a scalar or an array:
 
+```shell
   % print ${#path}
   8
   % print ${#path\[1\]}
   13
+```
 
 The first result shows I have 8 directories in my path, the latter that the first directory (actually \``/home/pws/bin`') has 13 characters. You should bear this in mind with nested substitutions, as discussed below, which can also return either an array or a scalar.
 
 Earlier versions of zsh always returned a character count if the expression was in double quotes, or anywhere the shell evalauted the expression as a single word, but that doesn't happen any more; it depends only on the type of the value. However, you can force the shell to count characters by using the `(c)` flag, and to count words (even in scalars, which it will split if necessary) by using `(w)`:
 
+```shell
   % print ${#PATH}
   84
   % print ${(c)#path}
@@ -639,14 +752,17 @@ Earlier versions of zsh always returned a character count if the expression was 
   % foo="three scalar words"
   % print ${(w)#foo}
   3
+```
 
 Comparing the first two, you will see that character count with arrays includes the space used for separating (equal to the number of colons separating the elements in `$PATH`). There's a relative of `(w)` called `(W)`, which treats multiple word separators as having zero-length words in between:
 
+```shell
   % foo="three  well-spaced  word"
   % print ${(w)#foo}
   3
   % print ${(W)#foo}
   5
+```
 
 giving two extra words over `(w)`, which treats the groups of spaces in the same way as one. Being parameter flags, these modifications of the syntax are specific to zsh.
 
@@ -658,6 +774,7 @@ The next group of substitutions is a whole series where the parameter is followe
 
 The simplest is \``${`_param_`:-`_value_`}`'. If `$param` has non-zero length (without the colon, if it is set at all), use its value, else use the _value_ supplied. Suppose `$foo` wasn't set at the start of the following (however unlikely that may seem):
 
+```shell
   % print ${foo-bar}
   bar
   % foo=''
@@ -668,45 +785,58 @@ The simplest is \``${`_param_`:-`_value_`}`'. If `$param` has non-zero length (w
   % foo='please no anything but bar'
   % print ${foo:-bar}
   please no anything but bar
+```
 
 It's more usual to use the form with the colon. One reason for that is that in functions you will often create the parameter with a `typeset` before using it, in which case it always exists, initially with zero length, so that the other form would never use the default value. I'll use the colon for describing the other three types.
 
 \``${`_param_`:=`_value_`}`' is similar to the previous type. but in this case the shell will not only substitute _value_ into the line, it will assign it to _param_ if (and only if) it does so. This leads to the following common idiom in scripts and functions:
 
+```shell
   : ${MYPARAM:=default}  ${OTHERPARAM:=otherdefault}
+```
 
 If the user has already set `$MYPARAM`, nothing happens, otherwise it will be set to \``default`', and similarly for `${OTHERPARAM}`. The \``:`' command does nothing but return true after the command line has been processed.
 
 \``${`_param_`:+`_value_`}`' is the opposite of \``:-`', logically enough: the _value_ is substituted if the parameter _doesn't_ have zero length. In this case, _value_ will often be another parameter substitution:
 
+```shell
   print ${value:+"the value of value is $value"}
+```
 
 prints the string only if `$#value` is greater than zero. Note that what can appear after the \``+`' is pretty much any single word the shell can parse; all the usual single-word substitutions (so globbing is excluded) will be applied to it, and quotes will work just the same as usual. This applies to the values after \``:-`' and \``:=`', too. One other commonly seen trick might be worth mentioning:
 
+```shell
   print ${1+"[\[email protected\]](/cdn-cgi/l/email-protection)"}
+```
 
 substitutes all the positional parameters as they were passed if the first one was set (here you don't want the colon). This was necessary in some old shells because `"[[email protected]](/cdn-cgi/l/email-protection)"` on its own gave you a single empty argument instead of no arguments when no arguments were passed. This workaround isn't necessary in zsh, nor in most modern Bourne-derived shells. There's a bug in zsh's handling, however; see the section on function parameters in chapter 3.
 
 The final type isn't that often used (meaning I never have): `${`_param_`?`_message_`}` tests if _param_ is set (no colon), and if it isn't, prints the message and exits the shell. An interactive shell won't exit, but it will return you immediately to the prompt, skipping anything else stored up for execution. It's a rudimentary safety feature, a little bit like \`assert' in C programmes; most shell programmers seem to cover the case of missing parameter settings by more verbose tests. It's quite neat in short shell functions for interactive use:
 
+```shell
   mless() { mtype ${@:?missing filename} | $PAGER }
+```
 
 **Standard forms: pattern removal**  
 
 Most of the more sophisticated Bourne-like shells define two pairs of pattern operators, which I shall call \`top and tail' operators. One pair (using \``#`' and \``##`') removes a given pattern from the head of the string, returning the rest, while the other pair (using \``%`' and \``%%`') removes a pattern from the tail of the string. In each case, the form with one symbol removes the shortest matching pattern, while the one with two symbols removes the longest matching pattern. Two typical uses are:
 
+```shell
   % print $HOME
   /home/pws
   % print ${HOME##\*/}
   pws
   % print ${HOME%/\*}
   /home
+```
 
 which here have the same effect of `${HOME:t}` and and `${HOME:h}`, and in zsh you would be more likely to use the latter. However, as you can see the pattern forms are much more general. Note the difference from:
 
+```shell
   % print ${HOME#\*/}
   home/pws
   % print ${HOME%%/\*}
+```
 
 where the shortest match of \``*/`' at the head was just the first slash, since \``*`' can match an empty string, while the longest match of \``/*`' at the tail was the entire string, right back to the first slash. Although these are standard forms, remember that the full power of zsh patterns is available.
 
@@ -722,13 +852,16 @@ One simple enhancement is that in addition to \``${`_param_`=`_value_`}`' and \`
 
 All the assignment types are affected by the parameter flags \``A`' and \``AA`' which tell the shell to perform array and associative array assignment (in the second case, you need pairs of key/value elements as usual). You need to be a little bit careful with array elements and word splitting, however:
 
+```shell
   % print -l ${(A)foo::=one two three four}
   one two three four
   % print ${#foo}
   1
+```
 
 That made `$foo` an array all right, but treated the argument as a scalar value and assigned it to the first element. There's a way round this:
 
+```shell
   % print -l ${(A)=foo::=one two three four}
   one
   two
@@ -736,6 +869,7 @@ That made `$foo` an array all right, but treated the argument as a scalar value 
   four
   % print ${#foo}
   4
+```
 
 Here, the \``=`' _before_ the parameter name has a completely different effect from the others: it turns on word-splitting, just as if the option `SH_WORD_SPLIT` is in effect. You may remember I went into this in appalling detail in the section \`Function parameters' in [chapter 3](zshguide03.html#syntax).
 
@@ -749,20 +883,25 @@ Zsh increases the usefulness of the \`top and tail' operators with some of its p
 
 Next, zsh allows you to match on substrings, not just on the head or tail. You can do this by giving the flag `(S)` with either of the \``#`' or \``%`' pattern-matching forms. The difference here is whether the shell starts searching for a matching substring at the start or end of the full string. Let's take
 
+```shell
   foo='where I was huge lizards walked here and there'
+```
 
 and see what we get matching on \``h*e`':
 
+```shell
   % print -l ${(S)foo#h\*e} ${(S)foo##h\*e} ${(S)foo%h\*e} ${(S)foo%%h\*e}
   wre I was huge lizards walked here and there
   w
   where I was huge lizards walked here and tre
   where I was huge lizards walked here and t
+```
 
 There are some odd discrepancies at first sight, but here's what happens. In the first case, \``#`' the shell looks forward until it finds a match for \``h*e`', and takes the shortest, which is the \``he`' in the first word. With \``##`', the match succeeds at the same point, but the longest match extends to the \``e`' right at the end of the string. With the other two forms, the shell starts scanning backwards from the end, and stops as soon as it reaches a starting point which has a match. For both \``%`' and \``%%`' this is the last \``h`', but the former matches \``he`' and the latter matches \``here`'.
 
 You can extend this by using the `(I)` flag to specify a numeric index. The index needs to be delimited, conventionally, although not necessarily, by colons. The shell will then scan forward or backward, depending on the form used, until it has found the `(I)`'th match. Note that it only ever counts a single match from each position, either the longest or the shortest, so the `(I)`'th match starts from the `(I)`'th position which has any match. Here's what happens when we remove all the matches for \``#`' using the example above.
 
+```shell
   % for (( i = 1; i <= 5; i++ )); do
   for> print ${(SI:$i:)foo#h\*e}
   for> done
@@ -771,6 +910,7 @@ You can extend this by using the `(I)` flag to specify a numeric index. The inde
   where I was huge lizards walked re and there
   where I was huge lizards walked here and tre
   where I was huge lizards walked here and there
+```
 
 Each time we match and remove one of the possible \``h*e`' sets where there is no \``e`' in the middle, moving from left to right. The last time there was nothing left to match and the complete string was returned. Note that the index we used was itself a parameter.
 
@@ -780,11 +920,13 @@ You can use the \``M`' flag to leave the matched portion rather than the rest of
 
 There is a sort of opposite to the \``(S)`' flag, which instead of matching substrings will only match the whole string; to do this, put a colon before the \``#`'. Hence:
 
+```shell
   % print ${foo:#w\*g}
   where I was huge lizards walked here and there
   % print ${foo:#w\*e}
 
   % 
+```
 
 The first one didn't match, because the \``g`' is not at the end; the second one did, because there is an \``e`' at the end.
 
@@ -792,18 +934,24 @@ The first one didn't match, because the \``g`' is not at the end; the second one
 
 The most powerful of the parameter pattern-matching forms has been borrowed from bash and ksh93; it doesn't occur in traditional Bourne shells. Here, you use a pair of \``/`'s to indicate a pattern to be replaced, and its replacement. Lets use the lizards again:
 
+```shell
   % print ${foo/h\*e/urgh}
   wurgh
+```
 
 A bit incomprehensible: that's because like most pattern matchers it takes the longest match unless told otherwise. In this case the `(S)` flag has been pressed into service to mean not a substring (that's automatic) but the shortest match:
 
+```shell
   % print ${(S)foo/h\*e/urgh}
   wurghre I was huge lizards walked here and there
+```
 
 That only replace the first match. This is where \``//`' comes in; it replaces every match:
 
+```shell
   % print ${(S)foo//h\*e/urgh}
   wurghre I was urgh lizards walked urghre and turghre
+```
 
 (No doubt you're starting to feel like a typical anachronistic Hollywood cave-dweller already.) Note the syntax: it's a little bit like substitution in `sed` or perl, but there's no slash at the end, and with \``//`' only the first slash is doubled. It's a bit confusing that with the other pattern expressions the single and double forms mean the shortest and longest match, while here it's the flag `(S)` that makes the difference.
 
@@ -819,6 +967,7 @@ There are three types of flag that don't look like flags, for historical reasons
 
 More control over splitting and joining is possible with three of the more standard type of flags, `(s)`, `(j)` and `(z)`. These do splitting on a given string, joining with a given string, and splitting just the way the shell does it, respectively. In the first two cases, you need to specify the string in the same way as you specified the index for the `(I)` flag. So, for example, here's how to turn `$PATH` into an ordinary array without using `$path`:
 
+```shell
   % print -l ${(s.:.)PATH}
   /home/pws/bin
   /usr/local/bin
@@ -828,19 +977,23 @@ More control over splitting and joining is possible with three of the more stand
   /usr/bin
   /usr/X11R6/bin
   /usr/games
+```
 
 Any character can follow the `(s)` or `(j)`; the string argument lasts until the matching character, here \``.`'. If the character is one of the bracket-like characters including \``<`', the \`matching' character is the corresponding right bracket, e.g. \``${(s<:>)PATH}`' and \``${(s(:))PATH}`' are both valid. This applies to all flags that need arguments, including `(I)`.
 
 Although the split or join string isn't a pattern, it doesn't have to be a single character:
 
+```shell
   % foo=(array of words)
   % print ${(j.\*\*.)foo}
   array\*\*of\*\*words
+```
 
 The `(z)` flag doesn't take an argument. As it handles splitting on the full shell definition of a word, it goes naturally with quoted expressions, and I discussed above its use with the `(Q)` flag for extracting words from a line with the quotes removed.
 
 It's possible for the same parameter expression to have both splitting and joining applied to it. This always occurs in the same order, regardless of how you specify the flags: joining first, then splitting. This is described in the (rather hairy) complete set of rules in the manual entry for parameter substitution. There are one or two occasions where this can be a bit surprising. One is when you have `SH_WORD_SPLIT` set and try to join a string:
 
+```shell
   % setopt shwordsplit    
   % foo=('another array' of 'words with spaces')
   % print -l ${(j.:.)foo}
@@ -848,16 +1001,20 @@ It's possible for the same parameter expression to have both splitting and joini
   array:of:words
   with
   spaces
+```
 
 You might not have noticed if you didn't use the \``-l` option to print, but the spaces still caused word-spliting even though you asked for the array to be joined with colons. To avoid this, either don't use `SH_WORD_SPLIT` (my personal preference), or use quotes:
 
+```shell
   % print -l "${(j.:.)foo}"
   another array:of:words with spaces
+```
 
 The elements of an array would normally be joined by spaces in this case, but the character specified by the `(j)` flag takes precedence. In just the same way, if `SH_WORD_SPLIT` is in effect, any splitting string given by `(s)` is used instead of the normal set of characters, which are any characters that occur in the string `$IFS`, by default space, tab, newline and NUL.
 
 Specifying a split for a particular parameter substitution not only sets the string to split on, but also ensures the split will take place even if the expression is quoted:
 
+```shell
   % array=('element one' 'element two' 'element three')
   % print -l "${=array}"
   element
@@ -866,14 +1023,17 @@ Specifying a split for a particular parameter substitution not only sets the str
   two
   element
   three
+```
 
 To be clear about what's happening here: the quotes force the elements to be joined with spaces, giving a single string, which is then split on the original spaces as well as the one used to join the elements of the array.
 
 I will talk shortly about nested parameter substitution; you should also note that splitting and joining will if necessary take place at all levels of a nested substitution, not just the outermost one:
 
+```shell
   % foo="three blind words"
   % print ${#${(z)foo}}
   3
+```
 
 This prints the length of the innermost expression; because of the zplit, that has produced a three-element array.
 
@@ -881,9 +1041,11 @@ This prints the length of the innermost expression; because of the zplit, that h
 
 The other two flags that don't use parentheses affect options for single substitutions, too. The second is the \``~`' flag that turns on `GLOB_SUBST`, making the result of a parameter substitution eligible for pattern matching. As the notation is supposed to indicate, it also makes filename expansion possible, so
 
+```shell
   % foo='~'
   % print ${~foo}
   /home/pws
+```
 
 It's that first \``~`' which is giving the home directory; the one in the parameter expansion simply allows that to happen. If you have `GLOB_SUBST` set, you can use \``${~~foo}`' to turn it off for one substitution.
 
@@ -893,20 +1055,25 @@ There's one other of these option flags: \``^`' forces on `RC_EXPAND_PARAM` for 
 
 Here are a few other parameter flags; I'm repeating some of these. A very useful one is \``t`' to tell you the type of a parameter. This came up in [chapter 3](zshguide03.html#syntax) as well. It's most common use is to test the basic type of the parameter before trying to use it:
 
+```shell
   if \[\[ ${(t)myparam} != \*assoc\* \]\]; then
     # $myparam is not an associative array.  Do something about it.
   fi
+```
 
 Another very useful type is for left or right padding of a string, to a specified length, and optionally with a specified fill string to use instead of space; you can even specify a one-off string to go right next to the string in question.
 
+```shell
   foo='abcdefghij'
   for (( i = 1; i <= 10; i++ )); do
    goo=${foo\[1,$i\]}
    print ${(l:10::X::Y:)goo} ${(r:10::X::Y:)goo}
   done
+```
 
 prints out the rather pretty:
 
+```shell
   XXXXXXXXYa aYXXXXXXXX
   XXXXXXXYab abYXXXXXXX
   XXXXXXYabc abcYXXXXXX
@@ -917,23 +1084,28 @@ prints out the rather pretty:
   XYabcdefgh abcdefghYX
   Yabcdefghi abcdefghiY
   abcdefghij abcdefghij
+```
 
 Note that those colons (which can be other characters, as I explained for the `(s)` and `(j)` flags) always occur in pairs before and after the argument, so that with three arguments, the colons in between are doubled. You can miss out the \``:Y:`' part and the \``:X:`' part and see what happens. The fill strings don't need to be single characters; if they don't fit an exact number of times into the filler space, the last repetition will be truncated on the end furthest from the parameter argument being inserted.
 
 Two parameters tell the shell that you want something special done with the value of the parameter substitution. The `(P)` flag forces the value to be treated as a parameter name, so that you get the effect of a double substitution:
 
+```shell
   % final=string
   % intermediate=final
   % print ${(P)intermediate}
   string
+```
 
 This is a bit as if `$intermediate` were what in ksh is called a \`nameref', a parameter that is marked as a reference to another parameter. Zsh may eventually have those, too; there are places where they are a good deal more convenient than the \``(P)`' flag.
 
 A more powerful flag is `(e)`, which forces the value to be rescanned for all forms of single-word substitution. For example,
 
+```shell
   % foo='$(print $ZSH\_VERSION)'
   % print ${(e)foo}
   4.0.2
+```
 
 made the value of `$foo` be re-examined, at which point the command substitution was found and executed.
 
@@ -945,57 +1117,73 @@ I can't resist describing a couple of extras.
 
 Zsh can do so much on parameter expressions that sometimes it's useful even without a parameter! For example, here's how to get the length of a fixed string without needing to put it into a parameter:
 
+```shell
   % print ${#:-abcdefghijklm}
   13
+```
 
 If the parameter whose name you haven't given has a zero length (it does, because there isn't one), use the string after the \``:-`' instead, and take it's length. Note you need the colon, else you are asking the shell to test whether a parameter is set, and it becomes rather upset when it realises there isn't one to test. Other shells are unlikely to tolerate any such syntactic outrages at all; the `#` in that case is likely to be treated as `$#`, the number of shell arguments. But zsh knows that's not going to have zero length, and assumes you know what you're doing with the extra part; this is useful, but technically a violation of the rules.
 
 Sometimes you don't need anything more than the flags. The most useful case is making the \`fill' flags generate repeated words, with the effect of perl's \``x`' operator (for those not familiar with perl, the expression \``"string" x 3`' produces the string \`stringstringstring'. Here, you need to remember that the fill width you specify is the total width, not the number of repetitions, so you need to multiply it by the length of the string:
 
+```shell
   % print ${(l.18..string.)}
   stringstringstring
+```
 
 ### 5.4.8: Nested parameter substitutions
 
 Zsh has a system for multiple nested parameter substitutions. Whereas in most shells or other scripting languages you would do something like:
 
+```shell
   % p=/directory/file.ext
   % p2=${p##\*/}            # remove longest match of \*/ from head
   % print $p2
   file.ext
   % print ${p%.\*}          # remove shortest match of .\* from tail
   file
+```
 
 in zsh you can do this in one substitution:
 
+```shell
   % p=/directory/file.ext
   % print ${${p##\*/}%.\*}
   file
+```
 
 saving the temporary parameter in the middle. (Again, you are more likely to use `${p:t:r}` in this particular case.) Where this becomes a major advantage is with arrays: if `$p` is an array, all the substitutions are applied to every element of the array:
 
+```shell
   % p=(/dir1/file1.ext1 /dir2/file2.ext2)
   % print ${${p##\*/}%.\*}
   file1 file2
+```
 
 This can result in some considerable reductions in the code for processing arrays. It's a way of getting round the fact that an ordinary command line interface like zsh, designed originally for direct interaction with the user, doesn't have all the sophistication of a non-interactive language like perl, whose \``map`' function would probably be the neatest way of doing the same thing:
 
+```shell
    # Perl code.
    @p = qw(/dir1/file1.ext1 /dir2/file2.ext2);
    @q = map { m%^(?:.\*/)(.\*?)(?:\\.\[^.\]\*|)$%; } @p;
    print "@q\\n";'
+```
 
 or numerous possible variants. In a shell, there's no way of putting functions like that into the command line without complicating the basic \`command, arguments' syntax; so we resort to trickery with substitutions. Note, however, that this degree of brevity makes for a certain lack of readability even in Perl. Furthermore, zsh is so optimised for common cases that
 
+```shell
   print ${p:t:r}
+```
 
 will work for both arrays and scalars: the `:t` takes only the tail of the filename, stripping the directories, and the `:r` removes the suffix. These two operators could have slightly unexpected effects in versions of zsh before 4.0.1, removing \`suffixes' which contained directory paths, for example (though this is what the pattern forms taken separately do, too).
 
 Note one feature of the nested substitution: you might have expected the \``${...}`' inside the other one to do a full parameter substitution, so that the outer one would act on the value of that --- that's what you'd get if the substitution was on its own, after all. However, that's not what happens: the \``${...}`' inside is simply a syntactic trick to say \`here come more operations on the parameter'. This means that
 
+```shell
   bar='this doesn'\\''t get substituted'
   foo='bar'
   print ${${foo}}
+```
 
 simply prints \``bar`', not the value of `$bar`. This is the same case we had before but without any of the extra \``##`' and \``%`' bits. The reason is historical: when the extremely useful nested substitution feature was added, it was much simpler to have the leading \``$`' indicate to the shell that it should call the substitution function again than find another syntax. You can make the value be re-interpreted as another parameter substitution, using the `(P)` substitution flag described above. Just remember that `${${foo}}` and `${(P)foo}` are different.
 
@@ -1004,31 +1192,43 @@ simply prints \``bar`', not the value of `$bar`. This is the same case we had be
 
 Finally, here is a brief explanation of how to read the expression at the top of the chapter. This is for advanced students only (nutcases, if you ask me). You can find all the bits in the manual, if you try hard enough, even the ones I didn't get around to explaining above. As an example, let's suppose the array contains
 
+```shell
   array=(long longer longest short brief)
+```
 
 and see what
 
+```shell
   print ${array\[(r)${(l.${#${([\[email protected\]](/cdn-cgi/l/email-protection))array//?/X}\[1\]}..?.)}\]}
+```
 
 gives.
 
 1.  Always start from the inside. The innermost expression here is
     
+    ```shell
         ${([\[email protected\]](/cdn-cgi/l/email-protection))array//?/X}
+      ```
     
     Not much clearer? Start from the inside again: there's the parameter we're operating on, whose name is `array`. Before that there are two flags in parenthesis: (`O`) says sort the result in descending alphabetic order, (`@`) treat the result as an array, which is necessary because this inner substitution occurs where a scalar value (actually, an arithmetic expression) would usually occur, and we need to take an array element. After the array name, \``//?/X`' is a global substitution: take the pattern \``?`' (any character) wherever it occurs, and replace it with the string \``X`'. The result of this is an array like `$array`, but with all the elements turned into strings consisting of \``X`'s in place of the original characters, and with the longest first, because that's how reverse alphabetic order works for strings with the same character. So
     
+    ```shell
         long longer longest short brief
+      ```
     
     would have become
     
+    ```shell
         XXXXXXX XXXXXX XXXXX XXXXX XXXX
+      ```
     
 2.  Next, we have \``${#`_result_`[1]}`' wrapped around that. That means that we take the first element of the array we arrived at above (the \``[1]`': that's why we had to make sure it was treated as an array), and then take the length of that (the \``#`'). We will end up in this case with 7, the length of the first (and longest element). We're finally getting somewhere.
     
 3.  The next step is the \``${`(`l.`_result_`..?.`)`}`'. Our previous _result_ appears as an argument to the \``(l)`' flag of the substitution. That's a rather special case of nested substitution: at this point, the shell expects an arithmetical expression, giving the minimum length of a string to be filled on the left. The previous substitution was evaluated because arithmetic expressions undergo parameter substitution. So it is the result of that, 7, which appears here, giving the more manageable
     
+    ```shell
         ${(l.7..?.)}
+      ```
     
     The expression for the \``(l)`' flag in full says \`fill the result of this parameter substitution to a minimum width of 7 using the fill character \``?`'. What is the substitution we are filling? It's empty: zsh is smart enough to assume you know what you're doing when you don't give a parameter name, and just puts in an empty string instead. So the empty string is filled out to length 7 with question marks, giving \``???????`'.
     
@@ -1036,18 +1236,23 @@ gives.
 
 After I wrote this, Sven Wischnowsky (who is responsible for a large fraction of the similar hieroglyphics in the completion functions) pointed out that a similar way of achieving this is:
 
+```shell
   print ${(M)array:#${~${([\[email protected\]](/cdn-cgi/l/email-protection))array//?/?}\[1\]}}
+```
 
 which does indeed show all the elements of the maximum length. A brief summary of how this works is that the innermost expression produces an array of \``?`' corresponding to the elements, longest first in the way we did above, turning the \``?`' into pattern match characters. The next expansion picks the longest. Finally, the outermost expansion goes through `$array` to find elements which match the complete string of \``?`' and selects out those that do match.
 
 If you are wondering about how to do that in perl in a single expression, probably sorting on length is the easiest:
 
+```shell
   # Perl code
   @array = qw(long longer longest short brief);
   @array = sort { length $b <=> length $a } @array;
+```
 
 and taking out the first element or first few elements of `@array`. However, in a highly-optimized scripting language you would almost certainly do it some other way: for example, avoid sorting and just remember the longest element:
 
+```shell
   # Perl code
   $elt = '';
   $l = 0;
@@ -1056,9 +1261,11 @@ and taking out the first element or first few elements of `@array`. However, in 
     $elt = $\_, $l = $newl  if $l > $newl;
   }
   print $elt, "\\n";
+```
 
 You can do just the same thing in zsh easily enough in this case;
 
+```shell
   local val elt
   integer l newl
   for val in $array; do
@@ -1069,6 +1276,7 @@ You can do just the same thing in zsh easily enough in this case;
     fi
   done
   print $elt
+```
 
 so this probably isn't a particularly good use for nested substitution, even though it illustrates its power.
 
@@ -1081,7 +1289,9 @@ Performing mathematics within the shell was first described in [chapter 3](zshgu
 
 In addition to the math library, loadable with \``zmodload zsh/mathfunc`', zsh has essentially all the operators you expect from C and other languages derived from it. In other words, things like
 
+```shell
   (( foo = bar ? 3 : 1, ++brr ))
+```
 
 are accepted. The comma operator works just as in C; all the arguments are evaluated, in this case \``foo = bar ? 3 : 1`' assigns 3 or 1 to `$foo` depending whether or not `bar` is non-zero, and then `$brr` is incremented by 1. The return status is determined by the final expression, so if `$brr` is zero after increment the return status is one, else it is zero (integers may be negative).
 
@@ -1091,8 +1301,10 @@ For completeness, the assignment form of exponentiation \``**=`' also works. I c
 
 The range of integers depends on how zsh was configured on your machine. The primary goal is to make sure integers are large enough to represent indexes into files; on some systems where the hardware usually deals with 32-bit integers, file sizes may be given by 64-bit integers, and zsh will try to use 64-bit integers as well. However, zsh will test for large integers even if no large file support is available; usually it just requires that your compiler has some easy to recognise way of defining 64-bit integers, such as \``long long`' which may be handled by gcc even if it isn't by the native compiler. You can easily test; if your zsh supports 64-bit integers, the largest available integer is:
 
+```shell
   % print $(( 0x7FFFFFFFFFFFFFFF ))
   9223372036854775807
+```
 
 and if you try adding something positive to that, you will get a negative result due to two's complement arithmetic. This should be large enough to count most things.
 
@@ -1101,13 +1313,17 @@ The range of floating point numbers is always that of a C \``double`', which is 
 ### 5.6.1: Entering and outputting bases
 
 I'll say a word or two about bases. I already said you could enter a number with any small base in a form like \``2#101010`' or \``16#ffff`', and that the latter could also be \``0xffff`' as in C. You can't, however, enter octal numbers just by using a leading \``0`', which you might expect from C. Here's an example of why not. Let's set:
+```
 
+```shell
   % foo=${(%):-%D}
   % print $foo
   01-08-06
+```
 
 The first line is another of those bogus parameter substitutions where we gave it a literal string and a blank parameter. We also gave it the flag \``(%)`', which forces prompt escapes to be expanded, and in prompts \``(%D)`' is the date as _yy_\-_mm_\-_dd_. Let's write a short program to find out what the date after `$foo` is. We have the luxury of 99 years to worry about the century wrapping, so we'll ignore it (and the Gregorian calendar).
 
+```shell
   mlens=(31 28 31 30 31 30 31 31 30 31 30 31)
   date=(${(s.-.)foo})    #  splits to array (01 08 23)
   typeset -Z 2 incr
@@ -1129,24 +1345,30 @@ The first line is another of those bogus parameter substitutions where we gave i
     fi
   fi
   print ${date\[1\]}-${date\[2\]}-${date\[3\]}
+```
 
 This will print \``01-08-07`'. Before I get to the point, various other explanations. We forced `$foo` to be split on any \``-`' in it, giving a three-part array. The next trick was \``typeset -Z 2 incr`', which tells the shell that `$incr` is to be at least two characters, filled with leading zeroes. That's how we got the \``07`' at the end, instead of just \``7`'. There's another way of doing this: replace
 
- 
+```shell
   typeset -Z 2 incr
   (( incr = ${date\[2\]} + 1 ))
   date\[2\]=$incr
+```
 
 with:
 
+```shell
   date\[2\]=${(l.2..0.)$(( ${date\[2\]} + 1 ))}
+```
 
 This uses the `(l)` parameter flag to fill up to two characters with a zero (the default is a space, so we need to specify the \``0`' this time), using the fact that parameter operations can have a nested `$`\-substution. This second form is less standard, however.
 
-Now, finally, the point. In that \`$(( ${date\[2\]} + 1 ))', the \``${date[2]}`' is simply the _scalar_ \``08`' --- the result of splitting an arbitrary string into an array. Suppose we used leading zeroes to signify octal numbers. We would get something like:
+Now, finally, the point. In that \`$(( ${date[2]} + 1 ))', the \``${date[2]}`' is simply the _scalar_ \``08`' --- the result of splitting an arbitrary string into an array. Suppose we used leading zeroes to signify octal numbers. We would get something like:
 
+```shell
   % print $(( ${date\[2\]} + 1 ))
   zsh: bad math expression: operator expected at \`8 + 1 '
+```
 
 because the expression in the substitution becomes \``08 + 1`' and an 8 can't appear in an octal number. So we would have to strip off any otherwise harmless leading zeroes. Parsing dates, or indeed strings with leading zeroes as padding, is a fairly common thing for a shell to do, and octal arithmetic isn't. So by default leading zeroes don't have that effect.
 
@@ -1154,26 +1376,32 @@ However, there is an option you can set, `OCTAL_ZEROES`; this is required for co
 
 Floating point numbers are never octal, always decimal:
 
+```shell
   % setopt octalzeroes
   % print $(( 077 ))
   63
   % print $(( 077.43 ))
   77.430000000000007
+```
 
 The other option to do with bases is `C_BASES`, which makes hexadecimal (and, if you have `OCTAL_ZEROES` set, octal) numbers appear in the form that you would use as input to a C (or, once again, Perl) program.
 
 How do you persuade the shell to print out numbers in a particular base anyway? There are two ways. The first is to associate a base with a parameter, which you do with an argument after the \``-i`' option to typeset:
 
+```shell
   % typeset -i 16 hexnum=32
   % print $hexnum
   16#20
+```
 
 This is the standard way. By the way, there's a slight catch with bases, taken over from ksh: if you _don't_ specify a base, the first assignment will do the job for you.
 
+```shell
   % integer anynum
   % (( anynum = 16#20 ))
   % print $anynum
   16#20
+```
 
 Only constants with explicit bases in an expression produce this effect; the first time \``anynum`' comes into contact with a \`_base_`#`_num_', or a hexadecimal or (where applicable) octal expression in the standard C form, it will acquire a default output base. So you need to use \``typeset -i 10`' if you don't like that.
 
@@ -1185,9 +1413,11 @@ Just as creating a parameter with an ordinary assignment makes it a scalar, so c
 
 However, relying on implicit typing in this fashion is bad. One of the reasons is explained in the manual entry, and I can't do better than use that example (since I wrote it):
 
+```shell
   for (( f = 0; f < 1; f += 0.1 )); do
     print $f
   done
+```
 
 If you try this, and `$f` does not already exist, you will see an endless stream of zeroes. What's happening is that the original assignment creates `$f` as an integer to store the integer `0` in. After printing this, `$f` is incremented by adding `0.1` to it. But once created, `$f` remains an integer, so the resulting `0.1` is cast back to an integer, and the resulting zero is stored back in `$f`. The result is that `$f` is never incremented.
 
@@ -1195,49 +1425,62 @@ You could turn the first `0` into `0.0`, but a better way is to declare \``float
 
 If you use a scalar to store an integer or floating point, everything will work. You don't have the problem just described, since although `$f` contains what looks like an integer to start with, it has no numeric type associated with it, and when you store `0.1` into `$f`, it will happily overwrite the string \``0`'. It's a bit more inefficient to use scalars, but actually not that much. You can't specify an output base or precision, and in versions of zsh up to 4.0.x, there is a problem when the parameter already has a string in it which doesn't make sense as a numeric expression:
 
+```shell
   % foo='/file/name'
   % (( foo = 3 ))
   zsh: bad math expression: operand expected at \`/file/name'
+```
 
 The unexpected error comes because \``/file/name/`' is evaluated even though the shell is about to overwrite the contents of `$foo`. Versions of the shell from 4.1.1 have a fix for this, and the integer assignment works as expected.
 
 You need to be careful with scalars that might contain an empty string. If you declare \``integer i`', it will immediately contain the value 0, but if you declare \``typeset s`', the scalar `$s` will just contain the empty string. You get away with this if you use the parameter without a \``$`' in front:
 
+```shell
   % typeset s
   % print $(( 3 \* s ))
   0
+```
 
 because the math code tries to retrieve `$s`, and when it fails puts a `0` there. However, if you explicitly use `$s`, the math code gets confused:
 
+```shell
   % print $(( 3 \* $s ))
   zsh: bad math expression: operand expected at \`'
+```
 
 because \``$s`' evaluates to an empty string before the arithmetic evaluation proper, which spoils the syntax. There's one common case where you need to do that, and that's with positional parameters:
 
+```shell
   % fn() { print "Twice $1 is $(( 2 \* $1 ))"; }
   % fn 3
   Twice 3 is 6
   % fn
   fn: bad math expression: operand expected at \`'
+```
 
 Obviously turning the \``$1`' into \``1`' means something completely different. You can guard against this with default values:
 
+```shell
   % fn() { print "Twice ${1:=0} is $(( 2 \* $1 ))"; }
   % fn
   Twice 0 is 0
+```
 
 This assigns a default value for `$0` if one was not set. Since parameter expansion is performed in one go from left to right, the second reference to `$1` will pick up that value.
 
 Note that you need to do this even if it doesn't look like the number will be needed:
 
+```shell
   % fn() { print $(( ${1:-0} ? $1 : 3 )); }
   % fn
   fn: bad math expression: operand expected at \`: 3 '
+```
 
 The expression before the \``?`' evaluates to zero if `$1` is not present, and you expect the expression after the colon to be used in that case. But actually it's too late by then; the arithmetic expression parser has received \``0 ? : 3`', which doesn't make sense to it, hence the error. So you need to put in \``${1:-0}`' for the second `$1`, too --- or `${1:-32}`, or any other number, since it won't be evaluated if `$1` is empty, it just needs to be parsed.
 
 You should note that just as you can put numbers into scalar parameters without needing any special handling, you can also do all the usual string-related tricks on numeric parameters, since there is automatic conversion in the other direction, too:
 
+```shell
   % float foo
   % zmodload -i zsh/mathfunc
   % (( foo = 4 \* atan(1.0) ))
@@ -1245,6 +1488,7 @@ You should note that just as you can put numbers into scalar parameters without 
   3.141592654e+00
   % print ${foo%%.\*}${foo##\*.\[0-9\]##}
   3e+00
+```
 
 The argument `-i` to `zmodload` tells it not to complain if the math library is already loaded. This gives us access to `atan`. Remember, \``float`' declares a parameter whose output includes an exponent --- you can actually convert it to a fixed point format on the fly using \``typeset -F foo`', which retains the value but alters the output type. The substitution uses some `EXTENDED_GLOB` chicanery: the final \``[0-9]##`' matches one or more occurrences of any decimal digit. So the head of the string value of `$foo` up to the last digit after the decimal point is removed, and the remainder appended to whatever appears before the decimal point.
 
@@ -1257,85 +1501,107 @@ Brace expansion, which you met in [chapter 3](zshguide03.html#syntax), appears i
 
 A complication occurs when arrays are involved. Normally, unquoted arrays are put into a command line as if there is a break between arguments when there is a new element, so
 
+```shell
   % array=(three separate words)
   % print -l before${array}after
   beforethree
   separate
   wordsafter
+```
 
 unless the `RC_EXPAND_PARAM` option is set, which combines the before and after parts with _each_ element, so you get:
 
+```shell
   % print -l before${^array}after
   beforethreeafter
   beforeseparateafter
   beforewordsafter
+```
 
 \--- the \``^`' character turns on the option just for that expansion, as \``=`' does with `SH_WORD_SPLIT`. If you think of the character as a correction to a proof, meaning \`insert a new word between the others here', it might help you remember (this was suggested by Bart Schaefer).
 
 These two ways of expanding arrays interact differently with braces; the more useful version here is when the `RC_EXPAND_PARAM` option is on. Here the array acts as sort of additional nesting:
 
+```shell
   % array=(two three)
   % print X{one,${^array}}Y
   XoneY XtwoY XoneY XthreeY
+```
 
 with the `XoneY` tacked on each time, but because of the braces it appears as a separate word, so there are four altogether.
 
 If `RC_EXPAND_PARAM` is not set, you get something at first sight slightly odd:
 
+```shell
   % array=(two three)
   % print X{one,$array}Y
   X{one,two three}Y
+```
 
 What has happened here is that the `$array` has produced two words; the first has \``X{one,`' tacked in front of the array's \``two`', while the second likewise has \``}Y`' on the end of the array's \``three`'. So by the time the shell comes to think about brace expansion, the braces are in different words and don't do anything useful.
 
 There's no obvious simple way of forcing the `$array` to be embedded in the braces at the same level, instead of like an additional set of braces. There are more complicated ways, of course.
 
+```shell
   % array=(two three)
   % print X${^=:-one $array}Y
   XoneY XtwoY XthreeY
+```
 
 Yuk. We gave parameter substitution a string of words, the array with `one` stuck in front, and told it to split them on spaces (this will split on any extra spaces in elements of `$array`, unfortunately), while setting `RC_EXPAND_PARAM`. The parameter flags are \``^=`'; the \``:-`' is the usual \`insert the following if the substitution has zero length' operator. It's probably better just to create your own temporary array and apply `RX_EXPAND_PARAM` to that. By the way, if you had `RC_EXPAND_PARAM` set already, the last result would have been different becuase the embedded `$array` would have been expanded together with the \``one` ' in front of it.
 
 Braces allow numeric expressions; this works a little like in Perl:
 
+```shell
   % print {1..10}a
   1a 2a 3a 4a 5a 6a 7a 8a 9a 10a
+```
 
 and you can ask the numbers to be padded with zeroes:
 
+```shell
   % print {01..10}b
   01b 02b 03b 04b 05b 06b 07b 08b 09b 10b
+```
 
 or have them in descending order:
 
+```shell
   % print {10..1}c
   10c 9c 8c 7c 6c 5c 4c 3c 2c 1c
+```
 
 Nesting this within other braces works in the expected way, but you can't have any extra braces inside: the syntax is fixed to number, two dots, number, and the numbers must be positive.
 
 There's also an option `BRACE_CCL` which, if the braces aren't in either of the above forms, expands single letters and ranges of letters:
 
+```shell
   % setopt braceccl
   % print 1{abw-z}2
   1a2 1b2 1w2 1x2 1y2 1z2
+```
 
 An important point to be made about braces is that they are _not_ part of filename generation; they have nothing to do with pattern matching at all. The shell blindly generates all the arguments you specify. If you want to generate only some arguments, depending on what files are matched, you should use the alternative-match syntax. Compare:
 
+```shell
   % ls
   file1
   % print file(1|2)
   file1
   % print file{1,2}
   file1 file2
+```
 
 The first matches any of \``file1`' or \``file2`' it happens to find in the directory (regardless of other files). The second doesn't look at files in the directory at all; it simply expands the braces according to the rules given above.
 
 This point is particularly worthy of note if you have come from a C-shell world, or use the `CSH_NULL_GLOB` option:
 
+```shell
   csh% echo file{1,2}
   file1 file2
   csh% echo f\*{1,2}
   file1
+```
 
 (\``csh%`' is the prompt, to remind you if you're skipping through without reading the text), where the difference occurs because in the first case there was no pattern, so brace expansion was done on ordinary words, while in the second case the \``*`' made pattern expansion happen. In zsh, the sequence would be: \``f*{1,2}`' becomes \``f*1 f*2`'; the first becomes `file1` and the second fails to match. With `CSH_NULL_GLOB` set, the failed match is simply removed; there is no error because one pattern has succeeded in matching. This is presumably the logic usually followed by the C shell. If you stick with \``file(1|2)`' and \``f*(1|2)`' --- in this case you can simplify them to \``file[12]`' and \``f*[12]`', but that's not true if you have more than one character in either branch --- you are protected from this difference.
 
@@ -1346,12 +1612,14 @@ Filename expansions consists of just \``~/...`', \``~user/...`', \``~namedir/...
 
 There's really only one thing to add, and that's the behaviour of the `MAGIC_EQUAL_SUBST` option. Assignments after `typeset` and similar statements are handled as follows
 
+```shell
   % typeset foo=~pws
   % print $foo
   /home/pws
   % typeset PATH=$PATH:~pws/bin
   % print ${path\[-1\]}
   /home/pws/bin
+```
 
 It may not be obvious why this is not obvious. The point is that \``typeset`' is an ordinary command which happens to be a shell builtin; the arguments of ordinary commands are not assignments. However, a special case is made here for `typeset` and its friends so that this works, even though, as I've said repeatedly, array assignments can't be done after `typeset`. The parameter `$PATH` isn't handled differently from any other --- any colon in an assignment to any variable is special in the way shown.
 
@@ -1359,11 +1627,15 @@ It's often useful to have this feature with commands of your own. There is an op
 
 A related new option appeared in version 4.0.2 when it became clear there was an annoying difference between zsh and other shells such as ksh and bash. Consider:
 
+```shell
   export FOO=\`echo hello there\`
+```
 
 In ksh and bash, this exports `$foo` with the value \``hello there`'. In zsh, however, an unquoted backquote expression forces wordsplitting, so the line becomes
 
+```shell
   export FOO=hello there
+```
 
 and exports `$FOO` with the value \``hello`', and `$there` with any value it happens to have already or none if it didn't exist. This is actually perfectly logical according to the rules, but you can set the option `KSH_TYPESET` to have the other interpretation.
 
@@ -1376,7 +1648,9 @@ It seems that bash behaves as if both `KSH_TYPESET` _and_ `MAGIC_EQUAL_SUBST` ar
 
 The final topic is perhaps the biggest, even richer than parameter expansion. I'm finally going to explain the wonderful world of zsh pattern matching. In addition to patterns as such, you will learn such things as how to find all files in all subdirectories, searching recursively, which have a given name, case insensitive, are at least 50 KB large, no more than a week old and owned by the root user, and allowing up to a single error in the spelling of the name. In fact, the required expression looks like this:
 
+```shell
   \*\*/(#ia1)name(LK+50mw-1u0)
+```
 
 which might appear, at first sight, a mite impenetrable. We'll work up to it gradually.
 
@@ -1412,16 +1686,21 @@ One possibility that is always available is the syntax for numeric ranges in the
 
 I repeat another warning from the manual: this test
 
+```shell
   \[\[ 342 = <1-30>\* \]\]
+```
 
 succeeds, even though the number isn't in the range 1 to 30. That's because \``<1-30>`' matches \``3`' and \``*`' matches 42. There's no use moaning, it's a consequence of the usual rule for patterns of all types in shells or utilities: pattern operators are tried independently, and each \`uses up' the longest piece of the string it is matching without causing the rest of the match to fail. We would have to break this simple and well-tried rule to stop numeric ranges matching if there is another digit left. You can test for that yourself, of course:
 
+```shell
   \[\[ 342 = <1-30>(|\[^\[:digit:\]\]\*) \]\]
+```
 
 fails. I wrote it so that it would match any number between 1 and 30, either not followed by anything, or followed by something which doesn't start with a digit; I will explain what the parentheses and the vertical bar are doing in the next section. By the way, leading zeroes are correctly handled (and never force octal interpretation); so \``00000003NaN`' would successfully match the pattern.
 
 The numbers in the range are always positive integers; you need extra pattern trickery to match floating point. Here's one attempt, which uses `EXTENDED_GLOB` operators, so come back and look when you've read the rest of this section if it doesn't make sense now:
 
+```shell
   isfloat() {
     setopt localoptions extendedglob
     if \[\[ $1 = (\[-+\]|)(\[0-9\]##.\[0-9\]#|\[0-9\]#.\[0-9\]##)\\ 
@@ -1431,6 +1710,7 @@ The numbers in the range are always positive integers; you need extra pattern tr
       print -r -- "$1 is not a floating point number"
     fi
   }
+```
 
 I've split it over two lines to fit. The first parenthesis matches an optional minus or plus sign --- careful with \``-`' in square brackets, since if it occurs in the middle it's taken as a range, and if you want it to match itself, it has to be at the start or end. The second parenthesis contains an alternative because \``.`' isn't a floating point number (at least, not in my book, and not in zsh's, either), but both \``0.`' and \``.0`' _are_ properly formed numbers. So we need at least one digit, either before or after the decimal point; the \``##`' means \`at least one occurrence of the previous expression', while the \``#`' means \`zero or more occurrences of the previous expression'. The expresion on the next line matches an exponent; here you need at least one digit, too. So \``3.14159E+00`' is successfully matched, and indeed you'll find that zsh's arithmetic operations handle it properly.
 
@@ -1442,12 +1722,14 @@ Parentheses are quite natural in zsh if you've used extended regular expressions
 
 The vertical bar usually needs to be inside parentheses so that the shell doesn't take it as a pipe, but in some contexts where this won't happen, such as a case statement label, you can omit any parentheses that would completely surround the pattern. So in
 
+```shell
   case $foo in
     (bar|rod|pipe) print "foo represents a piece of metal"
               ;;
     (\*) print "Are you trying to be different?"
         ;;
   esac
+```
 
 the surrounding parentheses are the required syntax for `case`, rather than pattern parentheses --- the same syntax works in other shells. Then \``bar|rod`' is an ordinary zsh expression matching either `bar` or `rod`, in a context where the \``|`' can't be mistaken for a pipe. In fact, this whole example works with `ksh` --- but there the use of \``|`' is a special case, while in zsh it fits in with the standard pattern rules.
 
@@ -1455,8 +1737,10 @@ Indeed, ksh has slightly different ways of specifying patterns: to make the use 
 
 An important thing to note is that when you are matching files, you can't put directory separators inside parentheses:
 
+```shell
   # Doesn't work!
   print (foo/bar|bar/foo)/file.c
+```
 
 doesn't work. The reason is that it's simply too difficult to write; pattern matching would be bound in a highly intricate way with searching the directory hierarchy, with the end of a group sending you back up to try another bit of the pattern on a directory you'd already visited. It's probably not impossible, but the pattern code maintainer (me) isn't all that enthusiastic about it.
 
@@ -1468,37 +1752,49 @@ Setting `EXTENDED_GLOB` makes three new types of operator available: those which
 
 The simpler of the two exclusions uses \``^`' to introduce a pattern which must _not_ be matched. So a trivial example (I will assume for much of the rest of the chapter that the option `EXTENDED_GLOB` is set) is:
 
+```shell
   \[\[ foo = ^foo \]\]
   \[\[ bar = ^foo \]\]
+```
 
 The first test fails, the second succeeds. It's important to realise that that the pattern demands nothing else whatever about the relevant part of the test string other than it doesn't match the pattern that follows: it doesn't say what length the matched string should have, for example. So
 
+```shell
   \[\[ foo = \*^foo \]\]
+```
 
 actually _does_ match: `*` swallows up the whole string, and the remaining empty string successfully fails to be \``foo`'. Remember the mantra: each part of the pattern matches the longest possible substring that causes the remainder of the pattern not to fail (unless, of course, failure is unavoidable).
 
 Note that the `^` applies to the whole pattern to its right, either to the end of the string, or to the end of the nearest enclosing parenthesis. Here's a couple more examples:
 
+```shell
   \[\[ foo = ^foo\* \]\]
+```
 
 Overall, this fails to match: the pattern \``foo*`' always matches the string on the left, so negating means it always fails.
 
+```shell
   \[\[ foo = (^foo)\* \]\]
+```
 
 This is similar to the last example but one. The expression in the parenthesis first matches against `foo`; this causes the overall match to fail because of the `^`, so it backs up one character and tries again. Now \``fo`' is successfully matched by `^foo` and the remaining \``o`' is matched by the `*`, so the overall match succeeds. When you know about backreferences, you will be able to confirm that, indeed, the expression in parentheses matches \``fo`'. This is a quite subtle point: it's easy to imagine that \``^foo`' says \`match any three letter string except the one I've given you', but actually there is no requirement that it match three letters, or indeed any.
 
 In filename generation, the `^` has a lower precedence than a slash:
 
+```shell
   % print /\*/tmp
   /data/tmp /home/tmp /usr/tmp /var/tmp
   % print /^usr/tmp
   /data/tmp /home/tmp /var/tmp
+```
 
 successfully caused the first level of directories to match anything but \``usr`'. A typical use of this with files is \``^*.o`' to match everything in a directory except files which end with \``.o`'.
 
 Note one point mentioned in the FAQ --- probably indicating the reason that \``^`' is only available with `EXTENDED_GLOB` switched on. Some commands use an initial \``^`' to indicate a control character; in fact, zsh's `bindkey` builtin does this:
 
+```shell
   bindkey '^z' backward-delete-word
+```
 
 which attaches the given function to the keystroke `Ctrl-z`. You must remember to quote that keystroke expression, otherwise it would expand to a list of all files in the current directory not called \``z`', very likely all of them.
 
@@ -1508,17 +1804,23 @@ The other exclusion operator is closely related. \`_pat1_`~`_pat2_' means \`anyt
 
 There's one significant difference between \``*~`_pat_' and \``^`_pat_': the `~` has a _lower_ precedence than \``/`' when matching against filenames. What's more, the pattern on the right of the `~` is not treated as a filename at all; it's simply matched against any filename found on the left, to see if it should be rejected. This sounds like black magic, but it's actually quite useful, particularly in combination with the recursive globbing syntax:
 
+```shell
    print \*\*/\*~\*/CVS(/)
+```
 
 matches any subdirectory of the current directory to any depth, except for directories called `CVS` --- the \``*`' on the right of the \``~`' will match any character including \``/`'. The final \``(/)`' is a glob qualifier indicating that only directories are to be allowed to match --- note that it's a positive assertion, despite being after the \``~`'. Glob qualifiers do not feel the effect of preceding exclusion operators.
 
 Note that in that example, any subdirectory of a directory called `CVS` would have matched successfully; you can see from the pattern that the expression after the \``~`' wouldn't weed it out. Slightly less obviously, the \``**/*`' matches files in the current directory, while the \``*/CVS`' never matches a \``CVS`' in the current directory, so that could appear. If you want to, you can fix that up like this:
 
+```shell
    print \*\*/\*~(\*/|)CVS(/\*|)(/)
+```
 
 again relying on the fact that \``/`'s are not special after the \``~`'. This will ruthlessly weed out any path with a directory component called `CVS`. An easier, but less instructive, way is
 
+```shell
    print ./\*\*/\*~\*/CVS(/)
+```
 
 You can restrict the range of the tilde operator by putting it in parentheses, so \``/(*~usr)/tmp`' is equivalent to \``/^usr/tmp`'.
 
@@ -1530,34 +1832,38 @@ The extended globbing symbols \``#`' and \``##`', when they occur in a pattern, 
 
 The \`previous pattern' is the smallest possible item which could be considered a complete pattern. Very often it is something in parentheses, but it could be a group in square or angle brackets, or a single ordinary character. Note particularly that in
 
+```shell
   # fails
   \[\[ foofoo = foo# \]\]
+```
 
 the test fails, because the \``#`' only refers to the final \``o`', not the entire string. What you need is
 
+```shell
   # succeeds
   \[\[ foofoo = (foo)# \]\]
+```
 
 It might worry you that \``#`' also introduces comments. Since a well-formatted pattern never has \``#`' at the start, however, this isn't a problem unless you expect comments to start in the middle of a word. It turns out that doesn't even happen in other shells --- \``#`' must be at the start of a line, or be unquoted and have space in front of it, to be recognised as introducing a comment. So in fact there is no clash at all here. There is, of course, a clash if you expect \``.#foo.c.1.131`' (probably a file produced by the version control system CVS while attempting to resolve a conflict) to be a plain string, hence the dependence on the `EXTENDED_GLOB` option.
 
 That's probably all you need to know; the \``#`' operators are generally much easier to understand than the exclusion operators. Just in case you are confused, I might as well point out that repeating a _pattern_ is not the same as repeating a _string_, so
 
+```shell
   \[\[ onetwothreetwoone = (one|two|three)## \]\]
+```
 
 successfully matches; the string is different for each repetition of the pattern, but that doesn't matter.
 
 We now have enough information to construct a list of correspondences between zsh's normal pattern operators and the ksh ones, available with `KSH_GLOB`. Be careful with \``!`(_..._)'; it seems to have a slightly different behaviour to the zsh near-equivalent. The following table is lifted directly from the zsh FAQ.
 
-\----------------------------------------------------------------------
-      ksh              zsh         Meaning
-     ------           ------       ---------
-     !(foo)            ^foo        Anything but foo.
-                or   foo1~foo2     Anything matching foo1 but foo2.
-@(foo1|foo2|...)  (foo1|foo2|...)  One of foo1 or foo2 or ...
-     ?(foo)           (foo|)       Zero or one occurrences of foo.
-     \*(foo)           (foo)#       Zero or more occurrences of foo.
-     +(foo)           (foo)##      One or more occurrences of foo.
-----------------------------------------------------------------------
+|      ksh        |      zsh        | Meaning                          |
+|-----------------|-----------------|----------------------------------|
+|     !(foo)      |      ^foo       | Anything but foo.                |
+|                 |or   foo1~foo2   |  Anything matching foo1 but foo2.|
+|@(foo1|foo2|...) | (foo1|foo2|...) | One of foo1 or foo2 or ...       |
+|     ?(foo)      |     (foo|)      | Zero or one occurrences of foo.  |
+|     \*(foo)     |      (foo)#     |  Zero or more occurrences of foo.|
+|     +(foo)      |     (foo)##     | One or more occurrences of foo.  |
 
 In both languages, the vertical bar for alternatives can appear inside any set of parentheses. Beware of the precedences of `^foo` and \``foo1~foo2`'; surround them with parentheses, too, if necessary.
 
@@ -1567,19 +1873,27 @@ One of the most used special features of zsh, and one I've already used a couple
 
 The \``**/`' or \``***/`' can't appear in parentheses; there's no way of specifying them as alternatives. As already noticed, however, the precedence of the exclusion operator \``~`' provides a useful way of removing matches you don't want. Remember, too, the recursion operators don't need to be at the start of the pattern:
 
+```shell
   print ~/\*\*/\*.txt
+```
 
 prints the name of all the files under your home directory ending with \``.txt`'. Don't expect it to be particularly fast; it's not as well optimised as the standard UNIX command `find`, although it is a whole lot more convenient. The traditional way of searching a file which may be anywhere in a directory tree is along the lines of:
 
+```shell
   find ~/src -name '\*.c' -print | xargs grep pattern
+```
 
 which is horrendously cumbersome. What's happening is that `find` outputs a newline-separated list of all the files it finds, and `xargs` assembles these as additional arguments to the command \``grep pattern`'. It simplifies in zsh to the much more natural
 
+```shell
   grep pattern ~/src/\*\*/\*.c
+```
 
 In fact, strictly speaking you probably ought to use
 
+```shell
   find ~/src -name '\*.c' -print0 | xargs -0 grep pattern
+```
 
 for the other form --- this passes null-terminated strings around, which is safer since any character other than a NUL or a slash can occur in a filename. But of course you don't need that now.
 
@@ -1589,8 +1903,10 @@ It's a little known fact that this is a special case of a more general syntax, \
 
 You should consider the \``/`)' to be in effect a single pattern token; for example in
 
+```shell
   % print (F\*|B\*/)#\*.txt
   FOO/BAR/thingy.txt
+```
 
 both \``F*`' and \``B*`' are possible directory names, not just the \``B*`' next to the slash. The difference between \``#`' and \``##`' is respected here --- with the former, zero occurrences of the pattern may be matched (i.e. \``*.txt`'), while with the latter, at least one level of subdirectories is required. Thus \``(*/)##*.txt`' is equivalent to \``*/**/*.txt`', except that the first \``*`' in the second pattern will match a symbolic link to a directory; there's no way of forcing the other syntax to follow symbolic links.
 
@@ -1606,6 +1922,7 @@ This feature requires the `BARE_GLOB_QUAL` option to be turned on, which it usua
 
 The simplest glob qualifiers are similar to what the completion system appends at the end of file names when the `LIST_TYPES` option is on; these are in turn similar to the indications used by \``ls -F`'. So
 
+```shell
   % print \*(.)
   file1 file2 cmd1 cmd2
   % print \*(/)
@@ -1614,6 +1931,7 @@ The simplest glob qualifiers are similar to what the completion system appends a
   cmd1 cmd2
   % print \*(@)
   symlink1 symlink2
+```
 
 where I've invented unlikely filenames with obvious types. `file1` and `file2` were supposed to be just any old file; `(.)` picks up those but also executable files. Sockets `(=)`, named pipes `(p)`, and device files `(%)` including block `(%b)` and character `(%c)` special files are the other types of file you can detect.
 
@@ -1623,7 +1941,9 @@ Associated with type, you can also specify the number of hard links to a file: `
 
 Actually, the `(*)` qualifier really applies to the file's permissions, not it's type, although it does require the file to be an executable non-special file, not a directory nor anything wackier. More basic qualifiers which apply just to the permissions of the files are `(r)`, `(w)` and `(x)` for files readable, writeable and executable by the owner; `(R)`, `(W)` and `(X)` correspond to those for world permissions, while `(A)`, `(I)` and `(E)` do the job for group permissions --- sorry, the Latin alphabet doesn't have middle case. You can speciy permissions more exactly with \``(f)`' for file permissions: the expression after this can take various forms, but the easiest is probably a delimited string, where the delimiters work just like the arguments for parameter flags and the arguments, separated by commas, work just like symbolic arguments to `chmod`; the example from the manual,
 
+```shell
   print \*(f:gu+w,o-rx:)
+```
 
 picks out files (of any type) which are writeable by the owner (\`user') and group, and neither readable nor executable by anyone else (\`other').
 
@@ -1637,25 +1957,35 @@ Next, you can pick out files by owner; `(U)` and `(G)` say that you or your grou
 
 You can also pick files by modification ((m)) or access ((a)) time, either before ((-)), at, or after ((+)) a specific time, which may be measured in days (the default), months ((M)), weeks ((w)), hours ((h)), minutes ((m)) or seconds ((s)). These must appear in the order `m` or `a`, optional unit, optional plus or minus, number. Hence:
 
+```shell
   print \*(m1)
+```
 
 Files that were modified one day ago --- i.e. less than 48 but more than 24 hours ago.
 
+```shell
   print \*(aw-1)
+```
 
 Files accessed within the last week, i.e. less than 7 days ago.
 
+```shell
 In addition to `(m)` and ((a)), there is also `(c)`, which is sometimes said to refer to file creation, but it is actually something a bit less useful, namely _inode_ change. The inode is the structure on disk where UNIX-like filing systems record the information about the location and nature of the file. Information here can change when some aspect of the file information, such as permissions, changes.
+```
 
 **File size**  
 
 The qualifier `(L)` refers to the file size (\`L' is actually for length), by default in bytes, but it can be in kilobytes `(k)`, megabytes `(m)`, or 512-byte blocks `(p, unfortunately)`. Plus and minus can be used in the same way as for times, so
 
+```shell
   print \*(Lk3)
+```
 
 gives files 3k large, i.e. larger than 2k but smaller than 4k, while
 
+```shell
   print \*(Lm+1)
+```
 
 gives files larger than a megabyte.
 
@@ -1687,27 +2017,37 @@ Note that time ordering produces the most recent first as the standard ordering 
 
 You can combine ordering criteria, with the most important coming first; each criterion must be preceded by `o` or `O` to distinguish it from an ordinary globbing flag. Obviously, `n` serves as a complete discriminator, since no two different files can have the same name, so this must appear on its own or last. But it's a good idea, when doing depth-first ordering, to use `odon`, so that files at a particular depth appear in alphabetical order of names. Try
 
+```shell
   print \*\*/\*(odon)
+```
 
 to see the effect, preferably somewhere above a fairly shallow directory tree or it will take a long time.
 
 There's an extra trick you can play with ordered files, which is to extract a subset of them by indexing. This works just like arrays, with individual elements and slices.
 
+```shell
   print \*(\[1\])
+```
 
 This selects a single file, the first in alphabetic order since we haven't changed the default ordering.
 
+```shell
   print \*(om\[1,5\])
+```
 
 This selects the five most recently modified files (or all files, if there are five or fewer). Negative indices are understood, too:
 
+```shell
   print \*(om\[1,-2\])
+```
 
 selects all files but the oldest, assuming there are at least two.
 
 Finally, a reminder that you can stick modifiers after qualifiers, or indeed in parentheses without any qualifiers:
 
+```shell
   print \*\*/\*(On:t)
+```
 
 sorts files in subdirectories into reverse order of name, but then strips off the directory part of that name. Modifiers are applied right at the end, after all file selection tasks.
 
@@ -1717,8 +2057,10 @@ The most complicated effect is produced by the `(e)` qualifer. which is followed
 
 There are two ways to use `(e)`. First, you can simply rely on the return code. So:
 
+```shell
   print \*(e:'\[\[ -d $REPLY \]\]':)
   print \*(/)
+```
 
 are equivalent. Note that quotes around the expression, which are necessary in addition to the delimiters (here \``:`') for expressions with special characters or whitespace. In particular, `$REPLY` would have been evaluated too early --- before file generation took place --- if it hadn't been quoted.
 
@@ -1726,7 +2068,9 @@ Secondly, the function can alter the value of `$REPLY` to alter the name of the 
 
 Here's the example in the manual:
 
+```shell
   print \*(e:'reply=(${REPLY}{1,2})':)
+```
 
 Note the string is delimited by colons _and_ quoted. This takes each file in the current directory, and for each returns a match which has two entires, the filename with \``1`' appended and the filename with \``2`' appended.
 
@@ -1742,18 +2086,24 @@ The syntax is borrowed from perl, although it's not the same: it looks like \``(
 
 The simplest sort of globbing flag will serve as an example. You can make a pattern, or a portion of a pattern, match case-insensitively with the flag `(#i)`:
 
+```shell
   \[\[ FOO = foo \]\]
   \[\[ FOO = (#i)foo \]\]
+```
 
 Assuming you have `EXTENDED_GLOB` set so that the \``#`' is an active pattern character, the first match fails while the second succeeds. I mentioned portions of a pattern. You can put the flags at any point in the pattern, and they last to the end either of the pattern or any enclosing set of parentheses, so in
 
+```shell
   \[\[ FOO = f(#i)oo \]\]
   \[\[ FOO = F(#i)oo \]\]
+```
 
 once more the first match fails and the second succeeds. Alternatively, you can put them in parentheses to limit their scope:
 
+```shell
   \[\[ FOO = ((#i)fo)o \]\]
   \[\[ FOO = ((#i)fo)O \]\]
+```
 
 gives a failure then a success again. Note that you need extra parentheses; the ones around the flag just delimit that, and have no grouping effect. This is different from Perl.
 
@@ -1761,17 +2111,23 @@ There are two flags which work in exactly the same way: `(#l)` says that only lo
 
 The third flag is `(#I)`, which turns case-insensitive matching off from that point on. You won't often need this, and you can get the same effect with grouping --- unless you are applying the case-insensitive flag to multiple directories, since groups can't span more than one directory. So
 
+```shell
   print (#i)/a\*/b\*/(#I)c\*
+```
 
 is equivalent to
 
+```shell
   print /\[aA\]\*/\[bB\]\*/c\*
+```
 
 Note that case-insensitive searching only applies to characters not in a special pattern of some sort. In particular, ranges are not automatically made case-insensitive; instead of \``(#i)[ab]*`', you must use \``[abAB]*`'. This may be unexpected, but it's consistent with how other flags, notably approximation, work.
 
 You should be careful with matching multiple directories case-insensitively. First,
 
+```shell
   print (#i)~/.Z\*
+```
 
 doesn't work. This is due to the order of expansions: filename expansion of the tilde happens before pattern matching is ever attempted, and the \``~`' isn't at the start where filename expansion needs to find it. It's interpreted as an empty string which doesn't match \``/.Z*`', case-insensitively --- in other words, it will match any empty string.
 
@@ -1779,15 +2135,21 @@ Hence you should put \``(#i)`' and any other globbing flags after the first slas
 
 Second,
 
+```shell
   print (#i)$HOME/.Z\*
+```
 
 does work --- prints all files beginning \``.Z`' or \``.z`' in your home directory --- but is inefficient. Assume `$HOME` expands to my home directory, `/home/pws`. Then you are telling the shell it can match in the directories \``/Home/PWS/`', \``/HOME/pWs`' and so on. There's no quick way of doing this --- the shell has to look at every single entry first in \``/`' and then in \``/home`' (assuming that's the only match at that level) to check for matches. In summary, it's a good idea to use the fact that the flag doesn't have to be at the beginning, and write this as:
 
+```shell
   print ~/(#i).Z\*
+```
 
 Of course,
 
+```shell
   print ~/.\[zZ\]\*
+```
 
 would be easier and more standard in this oversimplified example.
 
@@ -1809,18 +2171,22 @@ What happens when a pattern with active parentheses matches is that the elements
 
 An obvious use for this is to match directory and non-directory parts of a filename:
 
+```shell
   local match mbegin mend
   if \[\[ /a/file/name = (#b)(\*)/(\[^/\]##) \]\]; then
     print -l ${match\[1\]} ${match\[2\]}
   fi
+```
 
 prints \``/a/file`' and \``name`'. The second parenthesis matches a slash followed by any number of characters, but at least one, which are not slashes, while the first matches anything --- remember slashes aren't special in a pattern match of this form. Note that if this appears in a function, it is a good idea to make the three parameters local. You don't have to clear them, or even make them arrays. If the match fails, they won't be touched.
 
 There's a slightly simpler way of getting information about the match: the flag `(#m)` puts the matched string, the start index, and the index for the _whole_ match into the scalars `$MATCH`, `$MBEGIN` and `$MEND`. It may not be all that obvious why this is useful. Surely the whole pattern always matches the whole string? Actually, you've already seen cases where this isn't true for parameter substitutions:
 
+```shell
   local MATCH MBEGIN MEND string
   string=aLOha
   : ${(S)string##(#m)(\[A-Z\]##)}
+```
 
 You'll find this sets `$MATCH` to `LO`, `$MBEGIN` to 2 and `$MEND` to 3. In the parameter expansion, the `(S)` is for matching substrings, so that the \``##`' match isn't anchored to the start of `$string`. The pattern is `(#m)([A-Z]##)`, which means: turn on full-match backreferencing and match any number of capital letters, but at least one. This matches `LO`. Then the match parameters let you see where in the test parameter the match occurred.
 
@@ -1828,21 +2194,27 @@ There's nothing to stop you using both these types of backreferences at once, an
 
 Because ordinary globbing produces a list of files, rather than just one, this feature isn't very useful and is turned off. However, it _is_ possible to use backreferences in global substitutions and substitutions on arrays; here are both at once:
 
+```shell
   % array=(mananan then in gone June)
   % print ${array//(#m)?n/${(C)MATCH\[1\]}n}
   mAnAnAn thEn In gOne JUne
+```
 
 The substitution occurs separately on each element of the array, and at each match in each element `$MATCH` gets set to what was matched. We use this to capitalize every character that is followed by a lowercase \``n`'. This will work with the `(#b)` form, too. The perl equivalent of this is:
 
+```shell
   % perl -pe 's/.n/\\u$&/g' <<<$array
   mAnAnAn thEn In gOne JUne
+```
 
 (People sometimes say Perl has a difficult syntax to understand; I hope I'm convincing you how naive that view is when you have zsh.)
 
 Now I can convince you of one point I made about excluded matches above:
 
+```shell
   % \[\[ foo = (#b)(^foo)\* \]\]  && print $match
   fo
+```
 
 As claimed, the process of making the longest possible match, then backtracking from the end until the whole thing is successful, leads to the \``(^foo)`' matching \``fo`'.
 
@@ -1862,6 +2234,7 @@ Another common feature with case-insensitive matching is that only the literal p
 
 As an example of what you can do with this feature, here is a simple function to correct misspelled filenames.
 
+```shell
   emulate -LR zsh
   setopt extendedglob
 
@@ -1883,6 +2256,7 @@ As an example of what you can do with this feature, here is a simple function to
   (( $#trylist )) || return 1
 
   print $trylist
+```
 
 The function tries to match a file with the minimum possible number of errors, but in any case no more than 6. As soon as it finds a match, it will print it out and exit. It's still possible there is more than one match with that many errors, however, and in this case the complete list is printed. The function doesn't handle \``~`' in the filename.
 
@@ -1898,7 +2272,9 @@ The last two globbing flags are probably the least used. They are there really f
 
 They correspond to the much more commonly used \``^`' and \``$`' in regular expressions. The difference is that shell patterns nearly always match a complete string, so telling the pattern that a certain point is the start or end isn't usually very useful. There are two occasions when it is. The first is when the start or end is to be matched as an alternative to something else. For example,
 
+```shell
   \[\[ $file = \*((#s)|/)dirpart((#e)|/)\* \]\]
+```
 
 succeeds if `dirpart` is a complete path segment of `$file` --- with a slash or nothing at all before and after it. Remember, once again, that slashes aren't special in pattern matches unless they're performing filename generation. The effect of these two flags isn't altered at all by their being inside another set of parentheses.
 
@@ -1914,10 +2290,12 @@ In the examples, I will use the option `-n`, which forces `zmv` to print out wha
 
 Here's a simple example.
 
+```shell
   % ls
   foo
   % zmv -n '(\*)' '${(U)1}'
   mv -- foo FOO
+```
 
 The pattern matches anything in the current directory, excluding files beginning with a \``.`' (the function starts with an \``emulate`', so `GLOB_DOTS` is forced to be off). The complete string is stored as the first backreference, which is in turn put into `$1`. Then the second argument is used and `$1` in uppercase is substituted.
 
@@ -1925,9 +2303,10 @@ The pattern matches anything in the current directory, excluding files beginning
 
 The basic code in `zmv` is very simple. It boils down to more or less the following.
 
+```shell
   setopt nobareglobqual extendedglob
   local files pattern result f1 f2 match mbegin mend
-  
+
   pattern=$1
   result=$2
 
@@ -1937,6 +2316,7 @@ The basic code in `zmv` is very simple. It boils down to more or less the follow
     f2=${(e)result}
     mv -- $f1 $f2
   done
+```
 
 Here's what's going on. We store the arguments as `$pattern` and `$result`. We then expand the pattern to a list of files --- remember that `${~pattern}` makes the characters in `$pattern` active for the purposes of globbing. For each file we find, we match against the pattern again, but this time with backreferences turned on, so that parentheses are expanded into the array `$match`. If, for some reason, the pattern match failed this time, we just skip the file. Then we store `$match` in the positional parameters; the \``-``-`' for `set` and for `mv` is in case `$match[1]` begins with a \``-`'.
 
@@ -1950,23 +2330,29 @@ Note also the use of \``${(e)result}`' to force substitution of parameters when 
 
 `zmv` has some special handling for recursive globbing, but only with the patterns `**/` and `***/`. If you put either of these in parentheses in the pattern, they will be spotted and used in the normal way. Hence,
 
+```shell
   % ls test
   lonely
   % zmv -n '(\*\*/)lonely' '$1solitary'
   mv -- test/lonely test/solitary
+```
 
 Note that, as with other uses of \``**/`', the slash is part of the recursive match, so you don't need another one. You don't need to separate `$1` from `solitary` either, since positional parameters are a special case, but you could use \``${1}solitary`' for the look of it. Like glob qualifiers, recursive matches are handled by some magic in the function; in ordinary globbing you can't put these two forms inside parentheses.
 
 For the lazy, the option `-w` (which means \`with wildcards') will tell `zmv` to decide for itself where all the patterns are and automatically add parentheses. The two examples so far become
 
+```shell
   zmv -nw '\*' '${(U)1}'
   zmv -nw '\*\*\*/lonely' '$1solitary'
+```
 
 with exactly the same effects.
 
 Another way of getting useful effects is to use the \``${1//foo/bar}`' substitution in the second argument. This gives you a general way of substitution bits in filenames. Often, you can then get away with having \``(*)`' as the first argument:
 
+```shell
   zmv '(\*)' '${1//(#m)\[aeiou\]/${(U)MATCH}}'
+```
 
 capitalises all the vowels in all filenames in the current directory. You may be familiar with a perl script called `rename` which does tricks like this (though there's another, less powerful, programme of the same name which simply replaces strings).
 
@@ -1978,15 +2364,10 @@ Alternatively, you can force the behavour of `zmv`, `zcp` and `zln` just by givi
 
 The option `-i` works a bit like the same option to the basic programmes which `zmv` usually calls, prompting you before any action --- in this case, not just overwriting, but any action at all. Likewise, `-f` tells `zmv` to force overwriting of files, which it will usually refuse to do because of the potential dangers. Although many versions of `mv` etc. take this option, some don't, so it's not passed down; instead there's a generic way of passing down options to the programmes executed, using `-o` followed by a string. For example,
 
+```shell
   % ls
   foo
   % zmv -np frud -o'-a -b' '(\*)' '${(U)1}'
   frud -a -b -- foo FOO
+```
 
-* * *
-
-*   [Table of Contents](zshguide.html)
-*   [Previous Chapter](zshguide04.html)
-*   [Next Chapter](zshguide06.html)
-
-* * *
